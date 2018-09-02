@@ -1,0 +1,83 @@
+---
+title: "DATA 607 - Week1 Lab - Pittsburgh Bridges"
+author: "Soumya Ghosh"
+date: "September 1, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## DATA 607 - Data Acquisition and Management - Week1 Hands on Lab
+### Data Title: Pittsburgh Bridges Data Set 
+### Source:
+
+#### Creators: 
+
+#### Yoram Reich & Steven J. Fenves 
+#### Department of Civil Engineering and Engineering Design Research Center 
+#### Carnegie Mellon University 
+#### Pittsburgh, PA 15213 
+
+#### Donor: 
+
+#### Yoram Reich (yoram.reich '@' cs.cmu.edu)
+
+#### The actual data set is found here: https://archive.ics.uci.edu/ml/machine-learning-databases/bridges/bridges.data.version1
+
+### Load necessary R Libraries
+```{r}
+library(plyr)
+library(htmlTable)
+```
+
+
+### Load bridges data into a Data Frame 
+
+```{r}
+bridges_df <- read.csv("https://archive.ics.uci.edu/ml/machine-learning-databases/bridges/bridges.data.version1",header=FALSE,na.strings = "?")
+head(bridges_df)
+
+```
+
+### Rename columns in the data frame
+
+```{r}
+names(bridges_df)[] <- c("V1"="Identifier","V2"= "River","V3"="Location","V4"="Erected","V5"="Purpose","V6"="Length","V7"="Lanes","V8"="Clear-G","V9"="T-Or-D","V10"="Material","V11"="Span","V12"="Rel-L","V13"="Type")
+htmlTable(head(bridges_df))
+```
+
+### Summerize the bridges data
+
+```{r}
+summary(bridges_df)
+```
+
+### Distribution of bridges based on the year of erection/build
+
+```{r}
+hist(bridges_df$Erected)
+```
+
+### A pie chart for bridge purposes
+
+```{r}
+Purposes <- table(bridges_df$Purpose)
+PurposeRatios <- Purposes/sum(Purposes)
+PurposeLabels <- c("Aqueduct","Highway","Railroad","Walking")
+pie(PurposeRatios, labels = PurposeLabels, main = "Purpose of Bridges Built")
+```
+
+### Railroad bridges - a histogram of the dates that they were installed:
+
+```{r}
+
+RRBridges <- subset(bridges_df, bridges_df$Purpose == "RR")
+hist(RRBridges$Erected)
+```
+
+### Histogram of highway bridge dates of installation.
+
+```{r}
+HighwayBridges <- subset(bridges_df, bridges_df$Purpose == "HIGHWAY")
+hist(HighwayBridges$Erected)
+```
