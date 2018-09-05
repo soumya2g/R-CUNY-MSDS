@@ -1,0 +1,213 @@
+---
+title: "DATA 607 - Data Acquisition and Management - Week1 Assignment - Mashroom Data Set"
+author: "Soumya Ghosh"
+date: "September 1, 2018"
+output:
+  html_document: 
+    toc: true
+    df_print: kable
+  #  code_folding:hide
+  pdf_document: default
+
+---
+
+### Data Title: Mashroom Data Set 
+### Source: UCI Machine Learning Repository
+
+![](https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Source%20Files/Mashroom%20Data/Large73%5B1%5D.jpg)
+
+### Origin: 
+
+#### Mushroom records drawn from The Audubon Society Field Guide to North American Mushrooms (1981). G. H. Lincoff (Pres.), New York: Alfred A. Knopf 
+
+
+#### Donor: 
+
+#### Jeff Schlimmer (Jeffrey.Schlimmer@a.gp.cs.cmu.edu)
+
+### Data Set Information:
+
+##### This data set includes descriptions of hypothetical samples corresponding to 23 species of gilled mushrooms in the Agaricus and Lepiota Family (pp. 500-525). Each species is identified as definitely edible, definitely poisonous, or of unknown edibility and not recommended. This latter class was combined with the poisonous one. The Guide clearly states that there is no simple rule for determining the edibility of a mushroom; no rule like ``leaflets three, let it be'' for Poisonous Oak and Ivy.
+
+#### The actual data set can be found here: [UCI Machine Learning: Mashroom Data](https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data)
+
+#### GitHub Link for my work on Mashroom data: [GitHub](https://github.com/soumya2g/R-CUNY-MSDS/tree/master/DATA-607/Source%20Files/Mashroom%20Data)
+
+### R Libraries:
+
+Load necessary libraries
+```{r}
+library(plyr)
+library(htmlTable)
+library(magrittr)
+library(kableExtra)
+library(corrplot)
+```
+Note: 'kableExtra' package has been used to format tabular data outputs in scrollable (horizontal & vertical) box.
+
+### Load Data: 
+
+Loaded Mashroom data from GitHub location into a Data Frame and generate a summary view of the loaded data
+
+```{r echo=TRUE, warning=FALSE}
+mashroom_df <- read.csv("https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Source%20Files/Mashroom%20Data/agaricus-lepiota.data.txt",header=FALSE,sep= ",",na.strings = "?",quote = "")
+head(mashroom_df) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+### Data Dictionary: 
+
+Loaded Mashroom Data Dictionary into a data frame from GitHub location and display
+
+```{r echo=TRUE, warning=FALSE}
+mash_dictionary_df <- as.data.frame(read.table("https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Source%20Files/Mashroom%20Data/Data_Dictionary.txt",row.names = 1,header = TRUE, sep="\t"))
+mash_dictionary_df <- cbind(Variable=rownames(mash_dictionary_df), mash_dictionary_df)
+rownames(mash_dictionary_df)<- NULL
+mash_dictionary_df
+```
+
+
+### Add menaingful Column names:
+
+Renamed columns in the base Mashroom data frame based on the 'Column_Name' variable of the Mashroom Data Dictionary
+
+```{r echo=TRUE, warning=FALSE}
+names(mashroom_df) <- mash_dictionary_df$Variable
+head(mashroom_df) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+
+### Generate Expanded Data set:
+
+Replace Coded values in all the columns of the Mashroom data frame with Meaningful Values based on the data dictionary and generate a summary view with few rows
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+#Attribute1: edible_poisonous
+mashroom_df$edible_poisonous <- as.factor(mapvalues(mashroom_df$edible_poisonous,c("p","e"),c("poisonous","edible")))
+#Attribute2: cap_shape
+mashroom_df$cap_shape <- as.factor(mapvalues(mashroom_df$cap_shape,c("b","c","x","f","k","s"),c("bell","conical","convex","flat","knobbed","sunken")))
+#Attribute3: cap_surface
+mashroom_df$cap_surface <- as.factor(mapvalues(mashroom_df$cap_surface,c("f","g","y","s"),c("fibrous","grooves","scaly","smooth")))
+#Attribute4: cap_color
+mashroom_df$cap_color <- as.factor(mapvalues(mashroom_df$cap_color,c("n","b","c","g","r","p","u","e","w","y"),c("brown","buff","cinnamon","gray","green","pink","purple","red","white","yellow")))
+#Attribute5: bruises?
+mashroom_df$bruises <- as.factor(mapvalues(mashroom_df$bruises,c("t","f"),c("bruises","no")))
+#Attribute6: odor
+mashroom_df$odor <- as.factor(mapvalues(mashroom_df$odor,c("a","l","c","y","f","m","n","p","s"),c("almond","anise","creosote","fishy","foul","musty","none","pungent","spicy")))
+#Attribute7: gill_attachment
+mashroom_df$gill_attachment <- as.factor(mapvalues(mashroom_df$gill_attachment,c("a","d","f","n"),c("attached","descending","free","notched")))
+#Attribute8: gill_spacing
+mashroom_df$gill_spacing <- as.factor(mapvalues(mashroom_df$gill_spacing,c("c","w","d"),c("close","crowded","distant")))
+#Attribute9: gill_size
+mashroom_df$gill_size <- as.factor(mapvalues(mashroom_df$gill_size,c("b","n"),c("broad","narrow")))
+#Attribute10: gill_color
+mashroom_df$gill_color <- as.factor(mapvalues(mashroom_df$gill_color,c("k","n","b","h","g","r","o","p","u","e","w","y"),c("black","brown","buff","chocolate","gray","green","orange","pink","purple","red","white","yellow")))
+#Attribute11: stalk_shape
+mashroom_df$stalk_shape <- as.factor(mapvalues(mashroom_df$stalk_shape,c("e","t"),c("enlarging","tapering")))
+#Attribute12: stalk_root
+mashroom_df$stalk_root <- as.factor(mapvalues(mashroom_df$stalk_root,c("b","c","u","e","z","r","NA"),c("bulbous","club","cup","equal","rhizomorphs","rooted","missing")))
+#Attribute13: stalk_surface_above_ring
+mashroom_df$stalk_surface_above_ring <- as.factor(mapvalues(mashroom_df$stalk_surface_above_ring,c("f","y","k","s"),c("fibrous","scaly","silky","smooth")))
+#Attribute14: stalk_surface_below_ring
+mashroom_df$stalk_surface_below_ring <- as.factor(mapvalues(mashroom_df$stalk_surface_below_ring,c("f","y","k","s"),c("fibrous","scaly","silky","smooth")))
+#Attribute15: stalk_color_above_ring
+mashroom_df$stalk_color_above_ring <- as.factor(mapvalues(mashroom_df$stalk_color_above_ring,c("n","b","c","g","o","p","e","w","y"),c("brown","buff","cinnamon","gray","orange","pink","red","white","yellow")))
+#Attribute16: stalk_color_below_ring
+mashroom_df$stalk_color_below_ring <- as.factor(mapvalues(mashroom_df$stalk_color_below_ring,c("n","b","c","g","o","p","e","w","y"),c("brown","buff","cinnamon","gray","orange","pink","red","white","yellow")))
+#Attribute17: veil_type
+mashroom_df$veil_type <- as.factor(mapvalues(mashroom_df$veil_type,c("p","u"),c("partial","universal")))
+#Attribute18: veil_color
+mashroom_df$veil_color <- as.factor(mapvalues(mashroom_df$veil_color,c("n","o","w","y"),c("brown","orange","white","yellow")))
+#Attribute19: ring_number
+mashroom_df$ring_number <- as.factor(mapvalues(mashroom_df$ring_number,c("n","o","t"),c("none","one","two")))
+#Attribute20: ring_type
+mashroom_df$ring_type <- as.factor(mapvalues(mashroom_df$ring_type,c("c","e","f","l","n","p","s","z"),c("cobwebby","evanescent","flaring","large","none","pendant","sheathing","zone")))
+#Attribute21: spore_print_color
+mashroom_df$spore_print_color <- as.factor(mapvalues(mashroom_df$spore_print_color,c("k","n","b","h","r","o","u","w","y"),c("black","brown","buff","chocolate","green","orange","purple","white","yellow")))
+#Attribute22: population
+mashroom_df$population <- as.factor(mapvalues(mashroom_df$population,c("a","c","n","s","v","y"),c("abundant","clustered","numerous","scattered","several","solitary")))
+#Attribute23: habitat
+mashroom_df$habitat <- as.factor(mapvalues(mashroom_df$habitat,c("g","l","m","p","u","w","d"),c("grasses","leaves","meadows","paths","urban","waste","woods")))
+
+head(mashroom_df) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+#summary(mashroom_df)
+#View(mashroom_df)
+```
+
+### Subset of Column Selections:
+
+Selected a subset of following 6 columns including the 'edible_poisonous' attribute from the base Mashroom data frame -
+  - edible_poisonous
+  - cap_color
+  - odor
+  - spore_print_color
+  - population
+  - habitat
+
+```{r echo=TRUE, warning=FALSE}
+sub_mashroom_df <- subset(mashroom_df, select=c(1,4,6,21,22,23))
+head(sub_mashroom_df)  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+### Data Summary:
+
+Generated a summary of the Mashroom data analysis subset
+
+```{r}
+summary(sub_mashroom_df) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+### Generate Unique IDs for selected variables:
+
+Due to the presence of all categorical variables in the data set, I wanted them to be associated with numeric IDs to do further association/correlation analysis to identify impact on 'Poisonous' or 'Edible' classification.
+
+```{r}
+sub_mashroom_df$edible_poisonous_id <- as.integer(mapvalues(sub_mashroom_df$edible_poisonous,c("poisonous","edible"),1:2))
+sub_mashroom_df$cap_color_id <- as.integer(mapvalues(sub_mashroom_df$cap_color,c("brown","buff","cinnamon","gray","green","pink","purple","red","white","yellow"),1:10))
+sub_mashroom_df$odor_id <- as.integer(mapvalues(sub_mashroom_df$odor,c("almond","anise","creosote","fishy","foul","musty","none","pungent","spicy"),1:9))
+sub_mashroom_df$spore_print_color_id <- as.integer(mapvalues(sub_mashroom_df$spore_print_color,c("black","brown","buff","chocolate","green","orange","purple","white","yellow"),1:9))
+sub_mashroom_df$population_id <- as.integer(mapvalues(sub_mashroom_df$population,c("abundant","clustered","numerous","scattered","several","solitary"),1:6))
+sub_mashroom_df$habitat_id <- as.integer(mapvalues(sub_mashroom_df$habitat,c("grasses","leaves","meadows","paths","urban","waste","woods"),1:7))
+str(sub_mashroom_df)
+```
+
+### Correlation Plot:
+
+A Correlation plot generated for selected variables to capture possible association/relationship between 'edible_poisonous' and any other variables
+
+```{r}
+df <- subset(sub_mashroom_df,select=c(7,8,9,10,11,12))
+M <- cor(df)
+corrplot(M, type = "upper", order = "hclust", sig.level = 0.01, insig = "blank")
+```
+
+## Analysis of selected attributes in Mashroom Data Subset:
+### Poisonous Vs. Edible Stacked Bar plot - By Habitat
+
+Based on the above Correlation plot and sample hypothesis shared by the previous researchers, I have selected to do further analysis on association between 'habitat', 'cap_color' and 'edible_poisonous' variables - 
+
+### Poisonous:
+
+I performed row based subsetting of the data frame to filter for 'poisonous' mashrooms with cap_color as 'white' -
+
+```{r}
+poison_mashroom_df <- subset(sub_mashroom_df, sub_mashroom_df$edible_poisonous == "poisonous" & sub_mashroom_df$cap_color =="white" )
+poison_habitat <- table(poison_mashroom_df$habitat)
+poison_habitat_ratio <- poison_habitat/sum(poison_habitat)
+barplot(poison_habitat_ratio, main="Habitat Distribution for Poisonous Mashrooms")
+
+```
+
+### Edible:
+
+I performed row based subsetting of the data frame to filter for 'edible' mashrooms with cap_color as 'white' -
+
+```{r}
+edible_mashroom_df <- subset(sub_mashroom_df, sub_mashroom_df$edible_poisonous == "edible" & sub_mashroom_df$cap_color =="white" )
+edible_habitat <- table(edible_mashroom_df$habitat)
+edible_habitat_ratio <- edible_habitat/sum(edible_habitat)
+barplot(edible_habitat_ratio, main="Habitat Distribution for Edible Mashrooms")
+```
+
+## Conclusion:
+
+Based on the above two Bar plots, I am adding another hypothesis that mashrooms with habitat as 'urban' and cap_color as 'white' can also be considered as 'poisonous' with a high degree of accuracy.
+
