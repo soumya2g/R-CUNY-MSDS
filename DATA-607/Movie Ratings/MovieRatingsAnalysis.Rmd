@@ -1,0 +1,244 @@
+---
+title: "Movie Ratings Analysis"
+author: "Soumya Ghosh"
+date: "September 7, 2018"
+output: 
+  html_document: 
+    toc: true
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+  #  code_folding:hide
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Data Title: Movie Ratings Data Set 
+### Source: Collected through indenpendent survey
+
+### Database Components:
+
+#### This analysis involves a MySQL source database called 'movieratings'. This database has 3 tables -
+#### 1. movies
+#### 2. users
+#### 3. ratings
+
+**Note:** MySQL database software need to be installed in the local computer in order to successfully execute the R markdown code.
+
+#### Below are the steps involved in preparing the MySQL DB environment necesaary for the R markdown code to run successfully -
+
+1. Run the DDL script (MovieRatings_DDL Script.sql) in order to create a database called 'movieratings' along with the necessary tables as mentioned above -
+GitHub location:[DDL Script](https://github.com/soumya2g/R-CUNY-MSDS/blob/master/DATA-607/Movie%20Ratings/Source%20Files/MovieRatings_DDL%20Script.sql) 
+
+2. Run the Data Load script (Data Load DML Script.sql) to load necessary data into the database -
+GitHub Location: [Load Script](https://github.com/soumya2g/R-CUNY-MSDS/blob/master/DATA-607/Movie%20Ratings/Source%20Files/Data%20Load%20DML%20Script.sql)
+
+**Note:** All the necessary CSV data files are also available in the below mention location -
+GitHub Location: [Source Data Files](https://github.com/soumya2g/R-CUNY-MSDS/tree/master/DATA-607/Movie%20Ratings/Source%20Files)
+
+3. Create a ODBC System DSN called 'MySQL_MovieRatings' in the local machine with 'movieratings' as the default database with appropriate root credentials or with an appropriate user id having READ access to 'movieratings' database.
+
+### R Libraries:
+
+Load necessary libraries -
+```{r}
+library(RODBC)
+library(magrittr)
+library(kableExtra)
+library(data.table)
+library(plyr)
+library(ggplot2)
+library(reshape2)
+```
+
+### Establish DB Connection:
+
+I have used an ODBC data source called 'MySQL_MovieRatings' in order to connect to the database.
+
+```{r}
+con <- odbcConnect("MySQL_MovieRatings")
+```
+
+### Data Sets:
+
+#### A. Movies:
+
+I have taken a list of six Hollywood movies released in 2018 for this analysis. Movies belonging to multiple genres have been captured as pipe ('|') separated values.
+
+```{r}
+movies_df <- as.data.frame(sqlFetch(con,"movies"),stringsAsFactors = FALSE)
+
+movies_df %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+#### B. Users:
+
+These users contributed in the movie rating survey process.
+
+```{r}
+users_df <- as.data.frame(sqlFetch(con,"users"),stringsAsFactors = FALSE)
+
+users_df %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+#### C. Ratings:
+
+Each user rated all the 6 movies which has been loaded through SQL scripts into the database. A rank has been created in SQL based on the ratings provided by the users using SQL window function.
+
+```{r}
+Query = "SELECT 
+             User_ID
+            ,Movie_ID
+            ,Rating
+            ,RANK() OVER (PARTITION BY User_ID ORDER BY Rating desc) AS Movie_Rank
+         FROM
+             ratings 
+         ORDER BY 
+             User_ID
+            ,Movie_Rank;"
+
+ratings_df <- sqlQuery(con,Query)
+
+ratings_df %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+### Prepare Analytics data:
+
+Here I have joined all the 3 data sets and loaded into a data frame to prepare for further analysis along with dynamically created movie rank informtaion.
+
+```{r}
+Query = "SELECT 
+          m.Movie_ID
+         ,m.Movie_Title
+         ,m.Director_Name
+         ,m.Movie_Year
+         ,u.User_ID
+         ,u.First_Name
+         ,u.Last_Name
+         ,u.Gender
+         ,u.Age
+         ,r.Rating
+         ,RANK() OVER (PARTITION BY r.User_ID ORDER BY r.Rating desc) AS Movie_Rank
+        FROM
+          movieratings.ratings as r
+        INNER JOIN
+          movieratings.movies as m
+        ON r.Movie_ID = m.Movie_ID
+        INNER JOIN
+        movieratings.users as u
+        ON r.User_ID = u.User_ID;"
+
+detail_ratings_df <- sqlQuery(con,Query)
+
+detail_ratings_df %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+
+### Data Transformtaion:
+
+I have parsed the pipe('|') delimited genre column in the movies data frame to identify what all genres a particular movie belongs to as separate columns.
+
+```{r echo=TRUE}
+genres_df <- data.frame(sapply(tstrsplit(movies_df$Movie_Genre,'[|]',type.convert = TRUE),c),stringsAsFactors = FALSE)
+
+genres_df %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+
+I have Prepared a matrix with all the movie genres and assigned an indicator '1' if the genre applicable for a given movie.
+
+```{r echo=TRUE}
+genre_list <- c("Action","Adventure","Animation","Drama","Fantasy","Horror","Sci-Fi","Thriller")
+genre_matrix <- matrix(0,nrow(genres_df)+1,length(genre_list))
+genre_matrix[1,] <- genre_list #set first row to genre list
+colnames(genre_matrix) <- genre_list
+
+#iterate through matrix
+for (i in 1:nrow(genres_df)) {
+ for (c in 1:ncol(genres_df)) {
+ genmat_col = which(genre_matrix[1,] == genres_df[i,c])
+ genre_matrix[i+1,genmat_col] <- 1
+ }
+}
+
+genre_matrix %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+
+Converted the matrix into a data frame with integer indcator values.
+
+```{r}
+genre_matrix2 <- as.data.frame(genre_matrix[-1,], stringsAsFactors=FALSE) #remove first row, which was the genre list
+for (c in 1:ncol(genre_matrix2)) {
+  genre_matrix2[,c] <- as.integer(genre_matrix2[,c])
+} #convert from characters to integers
+
+genre_matrix2 %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+I have combined the genre indicators to the movies_df data frame.
+
+```{r}
+movies_df <- cbind(movies_df,genre_matrix2)
+movies_df %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+Here I have joined the Data Frames 'detail_ratings_df' and 'movies_df' based on 'Movie_ID' to add genres related indicators to analytical data sets.
+
+```{r}
+
+detail_ratings_df <- merge(x = detail_ratings_df, y = subset(movies_df,select = c("Movie_ID",genre_list)), by = "Movie_ID")
+detail_ratings_df %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+### Data Analysis:
+
+Structure of the analytical data set.
+
+```{r}
+str(detail_ratings_df)
+```
+
+#### Movie Ratings Analysis:
+
+Here I have created a side by side Boxplot for Ratings by Movie titles. This plot provides a comparative between the 6 selected titles. 
+
+```{r warning=FALSE}
+p<-ggplot(detail_ratings_df, aes(x = Movie_Title, y = Rating, color = Movie_Title)) +
+  geom_boxplot()
+p + theme(legend.position="bottom") + labs(title = "Movie Rating Boxplot By Title", x = "Movie Title") + theme(
+plot.title = element_text(color="black", size=14, face="bold.italic"),
+axis.title.x = element_text(color="blue", size=14, face="bold"),
+axis.title.y = element_text(color="#993333", size=14, face="bold")
+)
+```
+
+#### Movie Genre Analysis:
+
+Here, I have calculate Mean Percentage of Movie Genre by Gender:
+
+```{r warning=FALSE,message=FALSE}
+summary_df <- subset(detail_ratings_df,select = c(8,12:19))
+summary_df <- aggregate(summary_df,by = list(summary_df$Gender),FUN=mean, na.action=na.omit)
+summary_df <- summary_df[-2] 
+summary_df <- cbind(summary_df,gender=c(1:2))
+summary_df <-summary_df[,2:length(summary_df)]
+summary_df.long <- melt(summary_df,id.vars="gender")
+
+ggplot(summary_df.long,aes(x=variable,y=value,fill=factor(gender)))+
+  geom_bar(stat="identity",position="dodge")+
+  scale_fill_discrete(name="Gender",
+                      breaks=c(1, 2),
+                      labels=c("Female", "Male")) + labs(title = "Movie Genre Popularity By Gender", x = "Genre", y = "Mean Percentage")
+```
+
