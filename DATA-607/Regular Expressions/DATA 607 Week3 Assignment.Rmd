@@ -1,0 +1,181 @@
+---
+title: "DATA 607 Week3 Assignment - Regular Expressions"
+author: "Soumya Ghosh"
+date: "September 13, 2018"
+output: 
+  html_document: 
+    toc: true
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+  #  code_folding:hide
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### R Libraries:
+
+Load necessary libraries -
+
+```{r message=FALSE, warning=FALSE}
+library(stringr)
+```
+
+### Problem 3:
+
+Copy the introductory example. The vector name stores the extracted names.
+
+```{r}
+raw.data <- "555-1239Moe Szyslak(636) 555-0113Burns, C. Montgomery555-6542Rev. Timothy Lovejoy555 8904Ned Flanders636-555-3226Simpson,Homer5553642Dr. Julius Hibbert"
+
+name <- unlist(str_extract_all(raw.data, "[[:alpha:]., ]{2,}"))
+name
+```
+
+### Part (a): Use the tools of this chapter to rearrange the vector so that all elements conform to the standard first_name last_name.:
+
+1. There are some names where the name is abbreviate with initial followed by a '.' character. I want to replace them with BLANK in order to make them relatively easy to work with.
+
+
+```{r}
+
+name_1 <- str_replace_all(name,"\\s\\w{1}\\.", "") 
+name_1 
+
+```
+
+2. There some names with titles. So in the ths step, I have removed the title section whereever applicable.
+
+```{r}
+name_2 <- str_replace_all(name_1, "\\w{2,3}\\.","")
+name_2
+```
+
+3. Now the names separated by comma(,) need to be swapped in order to generate the First Name Last Name format.
+
+```{r}
+name_3 <- str_replace_all(name_2,"(\\w+),\\s(\\w+)","\\2 \\1")
+name_3
+
+```
+
+### Part (b): Construct a logical vector indicating whether a character has a title (i.e., Rev. and Dr.):
+
+```{r}
+titlePresent <- str_detect(name,"^\\w+\\.")
+titleResult <- data.frame(name, titlePresent)
+titleResult
+
+```
+
+
+### Part (c): Construct a logical vector indicating whether a character has a second name:
+
+```{r echo=TRUE}
+
+secNamePresent <- str_detect(name,"\\s\\w{1}\\.")
+secNameResult <- data.frame(name, secNamePresent)
+secNameResult
+```
+
+### Problem 4:
+
+Describe the types of strings that conform to the following regular expressions and construct an example that is matched by the regular expression.
+
+### Part (a): [0-9]+\\$:
+
+This expression represents one or more digits followed by a dollar symbol at the end. 
+
+```{r echo=TRUE}
+
+patternA <- "[0-9]+\\$"
+sampleA <- c("12345$", "87564$","ahdghd$")
+str_detect(sampleA,patternA)
+
+```
+
+### Part (b): \\b[a-z]{1,4}\\b:
+
+This expression represents strings including 1 to 4 alphabets in lower case. 
+
+```{r}
+
+patternB <- "\\b[a-z]{1,4}\\b"
+sampleB <- c("12345$", "abc","ahdgh")
+str_detect(sampleB,patternB)
+
+```
+
+### Part (c): .*?\\.txt$:
+
+This expression represents strings represents all file names ending with ".txt".
+
+```{r}
+patternC <- ".*?\\.txt$"
+sampleC <- c("test123.txt", "test.xls","ahdgh")
+str_detect(sampleC,patternC)
+
+```
+
+### Part (d): \\d{2}/\\d{2}/\\d{4}:
+
+This expression represents a set of 2, 2 and 4 digits separated by a slash("/") character. Normally this format resents a date string in either MM/DD/YYYY or DD/MM/YYYY.
+
+
+```{r}
+
+patternD <- "\\d{2}/\\d{2}/\\d{4}"
+sampleD <- c("01/20/2018", "28/02/2018","ahdgh")
+str_detect(sampleD,patternD)
+
+```
+
+### Part (e): <(.+?)>.+?</\\1>:
+
+This expression represents a HTML or XML tag in the format <Tag name>string in between</Tag Name>.
+
+```{r}
+patternE <- "<(.+?)>.+?</\\1>"
+sampleE <- c("<a>This is a tag</a>", "28/02/2018","ahdgh")
+str_detect(sampleE,patternE)
+```
+
+### Problem 9:
+
+The following code hides a secret message. Crack it with R and regular expressions.
+Hint: Some of the characters are more revealing than others! The code snippet is also
+available in the materials at www.r-datacollection.com.
+
+clcopCow1zmstc0d87wnkig7OvdicpNuggvhryn92Gjuwczi8hqrfpRxs5Aj5dwpn0Tanwo
+Uwisdij7Lj8kpf03AT5Idr3coc0bt7yczjatOaootj55t3Nj3ne6c4Sfek.r1w1YwwojigO
+d6vrfUrbz2.2bkAnbhzgv4R9i05zEcrop.wAgnb.SqoU65fPa1otfb7wEm24k6t3sR9zqe5
+fy89n6Nd5t9kc4fE905gmc4Rgxo5nhDk!gr
+
+```{r warning=FALSE}
+
+cypherText <- "clcopCow1zmstc0d87wnkig7OvdicpNuggvhryn92Gjuwczi8hqrfpRxs5Aj5dwpn0TanwoUwisdij7Lj8kpf03AT5Idr3coc0bt7yczjatOaootj55t3Nj3ne6c4Sfek.r1w1YwwojigO
+d6vrfUrbz2.2bkAnbhzgv4R9i05zEcrop.wAgnb.SqoU65fPa1otfb7wEm24k6t3sR9zqe5
+fy89n6Nd5t9kc4fE905gmc4Rgxo5nhDk!gr"
+```
+
+**Step 1.** Replace all digits, lowercase characters and space/newline characters with BLANK.
+
+```{r}
+text1 <- str_replace_all(cypherText,"[[:digit:]|[:lower:]|[:space:]]+","")
+text1
+
+```
+
+**Step 2.** Replace dot(.) with spaces.
+
+```{r}
+
+text2 <- str_replace_all(text1,"\\."," ")
+text2
+
+```
+
