@@ -1,0 +1,124 @@
+---
+title: "DATA 607 Week5 Assignment - Tidying and Transforming Data"
+author: "Soumya Ghosh"
+date: "September 28, 2018"
+output: 
+  html_document: 
+    toc: true
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+  #  code_folding:hide
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Assignment Summary:
+
+Below is the summary of the assignment - 
+
+![](./Problem Statement.png)
+
+### R Libraries:
+
+Load necessary libraries -
+
+```{r message=FALSE, warning=FALSE}
+library(kableExtra)
+library(stringr)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(ggplot2)
+
+```
+
+### Data Processing Steps :
+
+Below are the steps to be followed to generate the final output -
+
+1.  Create a CSV file in a "Wide" format which has the same information as the table shown above in the problem statement:
+
+![](./airline_data.png)
+
+2.  Import data into R:
+
+```{r}
+airlineDF <- read.csv("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Week5 Assignment\\airlines.csv",header = TRUE, stringsAsFactors = FALSE)
+head(airlineDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+3.  Use tidyr function gather() to unpivot destination columns into a variable and replace '.' character in Destination variable with a space character:
+
+```{r}
+airlineTidyDF <- airlineDF %>% gather(key = destination, value = "No. of Flights", -airline, -status) 
+airlineTidyDF$destination <- str_replace_all(airlineTidyDF$destination, "\\."," ")
+airlineTidyDF  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+4.  Use tidyr spread() function on 'status' column to to have two separate columns of 'on time' and 'delayed' flights:
+
+After spreading the data on 'status', using dplyr mutate() function, I have calculated 'total_flights' and 'deayed_percentage' for each airline and destination combination.
+
+```{r}
+airlineDF1 <- airlineTidyDF %>% spread(status,"No. of Flights") %>% mutate(total_flights = (delayed + `on time`)) %>%  mutate(delayed_percent = (delayed/total_flights)) 
+
+airlineDF1 %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+5.  Summerize the data set by airline:
+
+Based on the summerized data by airline across all destinations and the Bar plot below ALASKA arline shows a higher percentage of flight delays compared to AM WEST airline.
+
+```{r}
+airlineSummaryDF <- airlineDF1 %>% group_by(airline) %>% summarise(total_delayed = sum(delayed), total_on_time = sum(`on time`), total_fights = sum(total_flights)) %>% mutate(delayed_percent = total_delayed/total_fights)
+
+airlineSummaryDF  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+## Bar plot with overall Delayed% by airline
+
+ggplot(airlineSummaryDF, aes(y=delayed_percent, x=airline, color=airline, fill=airline)) + 
+    geom_bar( stat="identity") +
+    geom_text(aes(label = percent(delayed_percent)), vjust = -.5) +
+    scale_y_continuous(labels = scales::percent)
+
+```
+
+6.  Plot  Delayed% by Airline for each Destination:
+
+Based on the below Grouped Bar plot, in all of the destinations AM WEST has higher percentage of delayed flights compared to ALASKA.
+
+```{r fig.height = 8, fig.width = 10}
+ggplot(airlineDF1, aes(y=delayed_percent, x=airline, color=airline, fill=airline)) + 
+    geom_bar( stat="identity") +
+    geom_text(aes(label = percent(delayed_percent)), vjust = -.5) +
+    facet_wrap(~destination) + 
+    scale_y_continuous(labels = scales::percent)
+```
+
+7.  Comparing the 'on time' and delayed 'delayed' flight count comarison:
+
+```{r fig.height = 8, fig.width = 12}
+ggplot(airlineTidyDF, aes(x = airline, y = `No. of Flights`, fill = status)) + 
+  geom_bar(stat = 'identity', position = "stack") + 
+  geom_text(aes(label = `No. of Flights`), position = position_stack(vjust = 0.5)) +
+  facet_grid(~ destination)
+```
+
+
+
+## Conclusion:
+
+Comparing above 3 Bar Plots, few interesting facts can be highlighted -
+
+  - Even though, ALASKA airline shows a better track record in terms of having lesser percentage of flight delays when analyzed by individual destinations but overall ALASKA arline has a higher percentage of delayed flights compared to AM WEST.
+  
+  -  In Phoenix, AM WEST airline operates many more flights (5,000+) compared to ALASKA (200+). But the percentages of delays for AM WEST airline is only 2.7% higher compared to ALASKA airline.
+  
+  -  In Seattle, ALASKA operates more flights (2146 vs. 262) compared to AM WEST, but has a much lower (9.1% lower) flight delay percentage compared to AM WEST.
