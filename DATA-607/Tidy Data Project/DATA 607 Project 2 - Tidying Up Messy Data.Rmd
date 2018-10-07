@@ -1,0 +1,569 @@
+---
+title: "DATA 607 Project 2 - Tidying up messy wide data sets"
+author: "Soumya Ghosh"
+date: "October 4, 2018"
+output: 
+  html_document: 
+    toc: true
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+  #  code_folding:hide
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Project Summary:
+
+The project involves choosing any 3 "wide"", "messy"" data sets from Week 6 discussion topic, transform and tidying up the data using tidyr and dplyr packages. After converting the data sets in a tidy format, analysis to be performed on each of the data sets as suggested in the discussion forum.    
+
+
+### R Libraries:
+
+Load necessary libraries -
+
+```{r message=FALSE, warning=FALSE}
+library(kableExtra)
+library(stringr)
+library(dplyr)
+library(tidyr)
+library(scales)
+library(ggplot2)
+```
+
+### Data Set 1: United Nations Migrants Data Set By Origin and Destination By Gender
+
+The dataset presents estimates of international migrant by age, sex and origin. Estimates are presented for 1990, 1995, 2000, 2005, 2010, 2015 and 2017 and are available for all countries and areas of the world. The estimates are based on official statistics on the foreign-born or the foreign population.
+
+**Link to Data Source:** [UN WebSite](http://www.un.org/en/development/desa/population/migration/data/estimates2/estimates17.shtml) 
+
+**Data Screen Shot**: 
+
+![](C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\images\United Nations Migrants - 2017.png)
+
+
+Below are the steps to be followed for extracting, cleansing and processing data to generate the final output -
+
+1.  Convert the data sets into CSV fromat -
+
+'Table 2' and 'Table 3' tabs (for Male and Female data) in the Excel File are saved separately into two csv files excluding first 14 records in the file (to exclude the section above header).
+
+2.  Import data into R:
+
+```{r}
+## Male Data
+migrantMaleDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\UN_MigrantStockByOriginAndDestination_2017_M.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",")
+migrantMaleDF$Gender <- "Male"
+head(migrantMaleDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+## Female Data
+migrantFemaleDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\UN_MigrantStockByOriginAndDestination_2017_F.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",")
+head(migrantFemaleDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+migrantFemaleDF$Gender <- "Female"
+## Merge into one data frame
+migrantDF <- tbl_df(rbind(migrantMaleDF,migrantFemaleDF))
+head(migrantDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+glimpse(migrantDF)
+
+### Country to Continenet Map
+countryDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\CountryContinentMap.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",")
+
+```
+
+
+3.  Clean the data set:
+
+First few records in the 2nd column (Country of destination) of the data set represents regions, Continents etc. These records need to be stripped of as part of data cleansing. For all these records, 5h column (Type of Data) is populated with BLANK values.
+
+Also removed the unnecessary columns from the data set not required for further analysis -
+
+```{r}
+## Clean up the unnecessary rows 
+migrantDF <- migrantDF %>% filter(Type.of.data..a.!= "")
+
+## Remove unnecessary columns
+migrantDF <- migrantDF %>% select(-Sort.order,-Notes,-Code,-Type.of.data..a., -Total,-Other.North,-Other.South)
+names(migrantDF)[2] <- "destination_country"
+head(migrantDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+4.  Use tidyr function gather() to unpivot Country of origin columns into a variable called 'origin_country' and replace '.' character in 'Destination'origin_country' variable with a space character:
+
+```{r}
+migrantDF <- migrantDF %>% gather(key = origin_country, value = "no_of_migrants", -Year, -destination_country, -Gender) 
+migrantDF$origin_country <- str_replace_all(migrantDF$origin_country, "\\."," ")
+migrantDF <- migrantDF %>% filter(no_of_migrants != "..")
+migrantDF$no_of_migrants <- str_replace_all(migrantDF$no_of_migrants, "\\,","")
+migrantDF$no_of_migrants <- as.numeric(migrantDF$no_of_migrants)
+migrantDF <- migrantDF %>% filter(!is.na(no_of_migrants))
+
+### Lookup and Tag Continenet attribute based on destination_country
+#migrantDF <- migrantDF %>% inner_join(countryDF, by = c("destination_country" = "Country"))
+#migrantDFUS <- migrantDF %>% filter(destination_country == "United States of America" & Year == "2017")
+head(migrantDF)  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+
+5.  Data Analysis: Below is a heatmap for 2017 Migrants stock between Origin and Destination countries after applying a filter to only include No. of Migrants > 1M.
+
+```{r fig.height = 8, fig.width = 10}
+migrantDF2017 <- migrantDF %>% filter(Year == "2017") %>% group_by(destination_country, origin_country) %>% summarise(Migrant_Count = sum(no_of_migrants))  %>% mutate(Migrant_Count = Migrant_Count/1000000)
+
+migrantDF2017 <- migrantDF2017 %>% filter(Migrant_Count > 1)
+
+ggplot(migrantDF2017, aes(y = origin_country, x = destination_country)) + 
+        geom_tile(aes(fill = Migrant_Count),colour = "blue") +
+        theme(axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5),
+              panel.background = element_rect(fill = "darkblue",
+                                colour = "darkblue",
+                                size = 0.5, linetype = "solid"),
+              panel.grid.major = element_line(size = 0.5, linetype = 'solid',
+                                colour = "darkblue"), 
+              panel.grid.minor = element_line(size = 0.25, linetype = 'solid',
+                                colour = "darkblue")) +
+        scale_fill_gradient(low = "blue", high = "darkred") +
+        labs(fill="Migrant Count(in Millions)") +
+        ggtitle("2017 Migrants Map Betweek Origina and Destination Countries") 
+
+
+```
+
+#### Conclusion:
+
+In 2017, Mexico tops the chart in terms of no. of immigrants to US. 
+
+6.  Global distribution of Migrants in the year 2017:  
+
+```{r MigrantDistribution, fig.width = 10, fig.height = 5 }
+WorldData <- map_data('world')
+WorldData <- fortify(WorldData)
+
+migrantDF2017 <- migrantDF %>% filter(Year == "2017") %>% group_by(destination_country) %>% summarise(Migrant_Count = sum(no_of_migrants)) %>% mutate(Migrant_Count = Migrant_Count/1000000)
+
+ggplot() + 
+  geom_map(data=WorldData, map=WorldData,
+           aes(x=long, y=lat, group=group, map_id=region),
+           fill="white", colour="#7f7f7f", size=0.5) + 
+  geom_map(data=migrantDF2017, map=WorldData,
+           aes(fill=Migrant_Count, map_id=destination_country),
+           colour="#7f7f7f", size=0.5) + 
+  coord_map("rectangular", lat0=0, xlim=c(-150,150), ylim=c(-60, 90)) + 
+  scale_fill_continuous(low="thistle2", high="darkred", guide="colorbar") + 
+  scale_y_continuous(breaks=c()) + 
+  scale_x_continuous(breaks=c()) + 
+  labs(fill="Migrant Count(in Millions)", title=element_text("Global View of the International Migrants - 2017",face = "bold", size = 20), x="", y="") + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  theme_bw() + 
+  theme(panel.border = element_blank())
+```
+
+7.  Finding Top 10 Migrants destinaton countries in 2017
+
+```{r Top10Target, fig.width = 8, fig.height = 6}
+
+migrantRankDF <- migrantDF %>% filter(Year == "2017") %>% group_by(destination_country) %>% summarise(Migrant_Count = sum(no_of_migrants)) %>% mutate(Migrant_Count = Migrant_Count/1000000) %>% mutate(rank = rank(-Migrant_Count)) %>% filter(rank <= 10) %>% arrange(rank)
+
+ggplot(migrantRankDF, aes(x = reorder(destination_country,-Migrant_Count), y = Migrant_Count)) + 
+  geom_bar(stat = "identity", position = "dodge", fill = "orange") + 
+  geom_text(aes(label=paste0(round(Migrant_Count,1),"M")), vjust=-0.5, color="black", position = position_dodge(0.9), size=3.5) +
+  scale_fill_brewer(palette="Paired") + 
+  theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Top 10 Migrant Destination Countries in 2017") +
+  xlab("destination_country") +  ylab ("Migrant Count(in Millions)")
+  
+```
+
+8.  Finding Top 10 Origin countries in 2017 contributing to global immigration community:
+
+```{r Top10Origin, fig.width = 8, fig.height = 6}
+
+migrantOriginRankDF <- migrantDF %>% filter(Year == "2017") %>% group_by(origin_country) %>% summarise(Migrant_Count = sum(no_of_migrants)) %>% mutate(Migrant_Count = Migrant_Count/1000000) %>% mutate(rank = rank(-Migrant_Count)) %>% filter(rank <= 10) %>% arrange(rank)
+
+ggplot(migrantOriginRankDF, aes(x = reorder(origin_country,-Migrant_Count), y = Migrant_Count)) + 
+  geom_bar(stat = "identity", position = "dodge", fill = "steelblue") + 
+  geom_text(aes(label=paste0(round(Migrant_Count,1),"M")), vjust=-0.5, color="black", position = position_dodge(0.9), size=3.5) +
+  scale_fill_brewer(palette="Paired") + 
+  theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Top 10 Migrants Origin Countries in 2017") +
+  xlab("Origin_Country") +  ylab ("Migrant Count(in Millions)")
+  
+```
+
+9.  Global Trend in Immigration in last few years:   
+
+```{r fig.height = 6, fig.width = 10}
+migrantSummaryDF <- migrantDF %>% group_by(Year) %>% summarise(Migrant_Count = sum(no_of_migrants)) %>% mutate(Migrant_Count = Migrant_Count/1000000) 
+
+#### National Avg. In-State 4 Year Fee Trend Analysis
+ggplot(data=migrantSummaryDF, aes(x=Year,y= Migrant_Count, group=1)) +
+  geom_line(arrow = arrow(), color = "black",size = 1.2)+
+  geom_point(color = "red", size = 3)+
+  theme(axis.text.x=element_text(angle = 0, vjust = 0.5)) +
+  scale_fill_brewer(palette="Paired") + 
+  ggtitle("Global Immigration Trend (1990-2017)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_text(aes(label=paste0(round(Migrant_Count,0),"M")), vjust=-1, color="black", position = position_dodge(0.9), size=3.5) 
+
+```
+
+#### Conclusion:
+
+There is a steady significant increase in Global Immigration trend from various parts of the world to wards US due to better economic prosperity, quality of livelihood and increasing political unrest in certain parts of the world. US continues to be the most sought after destination for immigrants and India is at the top of the list as the origin of migrants due to it's vast population.  
+    
+### Data Set 2: Average College Tuition Fees Trends By State
+
+The dataset presents tuition fees trands from 2004-05 to 2017-18 for In-District and In-State fees by state.
+
+**Link to Data Source:** [collegeboard.org website](https://trends.collegeboard.org/sites/default/files/2017-trends-college-pricing-souce-data-final_102717.xlsx) 
+
+**Data Screen Shot**: 
+
+![](C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\images\\College_Tuition.png)
+
+Below are the steps to be followed for extracting, cleansing and processing data to generate the final output -
+
+1.  Convert the data sets into CSV fromat -
+
+'Table 5' tab in the Excel File is saved separately as  a csv file to be treated as a source for R.
+
+2.  Import data into R:
+
+```{r}
+## Raw Data
+collegeTuitionDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\2017-trends-college-pricing-souce-data-final_102717.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",",skip = 2)
+
+head(collegeTuitionDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+3.  Clean the data set:
+
+Rename the first column as 'State'. Also removed the unnecessary columns from the data set not required for further analysis -
+
+```{r}
+### Rename 1st column
+names(collegeTuitionDF)[1] <- "State"
+
+## Remove unnecessary columns
+collegeTuitionDF <- collegeTuitionDF %>% select(-X,-contains("Change"))
+
+## Clean 
+head(collegeTuitionDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+4.  Use tidyr function gather() to unpivot series of College Year tution fee columns into two variables called 'In-District 2 Yr. Tuition Fee' & 'In-State 4 Yr. Tuition Fee' 
+
+#### Step A: Divide the main data frame collegeTuitionDF into two separate data frames:
+
+```{r}
+### Create two separate data frames for In-District and In-Sate data sets
+
+collegeDistrictTuitionDF <- collegeTuitionDF %>% select(State, 2:15)
+
+collegeStateTuitionDF <- collegeTuitionDF %>% select(State, 16:29)
+
+```
+
+#### Step B: Apply tidyr gather() function to District and State data frmames separately:
+
+Replace 'X' and '.' characters in 'derived variables'College_Year' variable with a space and '-' characters to transform and clean up data in a tidy format
+
+```{r}
+collegeDistrictTuitionDF <- collegeDistrictTuitionDF %>% gather(key = 'College_Year', value = "In-District 2 Yr. Tuition Fee", -State) 
+collegeStateTuitionDF <- collegeStateTuitionDF %>% gather(key = 'College_Year', value = "In-State 4 Yr. Tuition Fee", -State) 
+
+#### Clean up and conform 'College_Year' variable in both the data frames
+collegeDistrictTuitionDF$College_Year <- str_replace_all(collegeDistrictTuitionDF$College_Year,"X","")
+collegeDistrictTuitionDF$College_Year <- str_trim(str_replace_all(collegeDistrictTuitionDF$College_Year,"\\.","-"))
+
+
+head(collegeDistrictTuitionDF)  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+#### Clean up and conform 'College_Year' variable in both the data frames
+collegeStateTuitionDF$College_Year <- str_replace_all(collegeStateTuitionDF$College_Year,"X|(.1$)","")
+collegeStateTuitionDF$College_Year <- str_trim(str_replace_all(collegeStateTuitionDF$College_Year,"\\.","-"))
+
+
+head(collegeStateTuitionDF)  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+#### Step C: Merge the the two data frames into one based on 'State' and 'College_Year' variables:
+
+Replace 'N/A' with zeroes and convert Data type for Fees columns into numeric - 
+
+```{r}
+collegeTuitionFinalDF <- inner_join(collegeDistrictTuitionDF,collegeStateTuitionDF)
+collegeTuitionFinalDF$`In-District 2 Yr. Tuition Fee` <- as.numeric(str_trim(str_replace_all(str_replace_all(collegeTuitionFinalDF$`In-District 2 Yr. Tuition Fee`,"N/A","$0"),"\\$|,","")))
+
+collegeTuitionFinalDF$`In-State 4 Yr. Tuition Fee` <- as.numeric(str_trim(str_replace_all(str_replace_all(collegeTuitionFinalDF$`In-State 4 Yr. Tuition Fee`,"N/A","$0"),"\\$|,","")))
+
+head(collegeTuitionFinalDF)  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+5.  Analysis of the National Average College Tuition Fees:
+
+Derive National Average Tuition Fees to analyze the trend in increasing fees -
+
+```{r fig.height = 6, fig.width = 10}
+collegeTuitionSummaryDF <- collegeTuitionFinalDF %>% group_by(College_Year) %>% summarize(`Avg. In-District 2 Yr. Tuition Fee` = mean(`In-District 2 Yr. Tuition Fee`),`Avg. In-State 4 Yr. Tuition Fee` = mean(`In-State 4 Yr. Tuition Fee`))
+
+head(collegeTuitionSummaryDF)  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+#### National Avg. In-District 2 Year Fee Trend Analysis
+ggplot(data=collegeTuitionSummaryDF, aes(x=College_Year,y=`Avg. In-District 2 Yr. Tuition Fee`, group=1)) +
+  geom_line(arrow = arrow(), color = "blue",size = 1.2)+
+  geom_point(color = "red", size = 3)+
+  theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) +
+  scale_fill_brewer(palette="Paired") + 
+  ggtitle("US National Avg. In-District 2 Years Tuition Feess Trend") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_text(aes(label=paste0("$",round(`Avg. In-District 2 Yr. Tuition Fee`,0))), vjust=-1, color="black", position = position_dodge(0.9), size=3.5) 
+
+#### National Avg. In-State 4 Year Fee Trend Analysis
+ggplot(data=collegeTuitionSummaryDF, aes(x=College_Year,y=`Avg. In-State 4 Yr. Tuition Fee`, group=1)) +
+  geom_line(arrow = arrow(), color = "blue",size = 1.2)+
+  geom_point(color = "red", size = 3)+
+  theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) +
+  scale_fill_brewer(palette="Paired") + 
+  ggtitle("US National Avg. In-State 4 Years Tuition Feess Trend") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_text(aes(label=paste0("$",round(`Avg. In-State 4 Yr. Tuition Fee`,0))), vjust=-1, color="black", position = position_dodge(0.9), size=3.5) 
+
+```
+
+####Conclusion:
+
+From the Line charts above, a steep increase in college tuiton fees can be observed from year 2008-09 which could be related to recovery of US economy post 2008-09 crisis. 
+
+6.  Ranking of US States based on In-State Tuition for the last 5 years (2013-14 to 2017-18):
+
+```{r Top5State5Yrs, fig.width = 10, fig.height = 10}
+
+college5YrStateRankDF <- collegeTuitionFinalDF %>% select(State, College_Year,`In-State 4 Yr. Tuition Fee`) %>% filter(College_Year >= "2013-14") %>%  group_by(College_Year,State) %>% summarise(`In-State 4 Yr. Tuition Fee`= sum(`In-State 4 Yr. Tuition Fee`)) %>% arrange(College_Year,-`In-State 4 Yr. Tuition Fee`) %>% mutate(rank = row_number()) %>% filter(rank<=5)
+
+college5YrStateRankDF  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+ggplot(college5YrStateRankDF, aes(x = reorder(State,-`In-State 4 Yr. Tuition Fee`), y = `In-State 4 Yr. Tuition Fee`)) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  geom_text(aes(label=paste0("$",round(`In-State 4 Yr. Tuition Fee`,0))), vjust=-0.5, color="black", position = position_dodge(0.9), size=3.5) +
+  scale_fill_brewer(palette="Paired") + 
+  theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Top 5 Most Expensive States in Last 5 Years") +
+  xlab("State") +  ylab ("In-State 4 Yr. Tuition Fee") +
+  facet_wrap(~College_Year) 
+
+```
+
+####Conclusion:
+
+Below states are consistently ranked the most expensive states in last 5 years -
+
+  - New Hampshire
+  - Vermont
+  - Pennsylvania
+  - New Jersey
+  - Illinois 
+  
+### Data Set 3: Untidy Dataset - Snack substitution
+
+(USDA Stats) Snacks - impact on food costs and calorie intake of substituting fruits and vegetables for other snack foods.
+
+**Link to Data Source:** 
+
+[USDA WebSite - Calorie Impact Sheet](https://www.ers.usda.gov/webdocs/DataFiles/51035/caloricimpacts.xls?v=0) 
+
+[USDA WebSite - Cost Impact Sheet](https://www.ers.usda.gov/webdocs/DataFiles/51035/costimpacts.xls?v=0) 
+
+**Data Screen Shots**: 
+
+#### Calorie Impact Data:
+
+![](C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\images\\USDA_Calorie_Impact.png)
+
+**Note: A negative sign means that caloric intake increases when the snack is replaced with a fruit or vegetable.**
+
+#### Cost Impact Data:
+
+![](C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\images\\USDA_Cost_Impact.png)
+
+**Note: A negative sign means that food costs increase when the snack is replaced with a fruit or vegetable.**
+
+Below are the steps to be followed for extracting, cleansing and processing data to generate the final output -
+
+1.  Convert the data sets into CSV fromat -
+
+Both USDA Calorie and Cost Impact sheets for snack food substitution Excel Files are saved separately into two csv files.
+
+2.  Import data into R:
+
+```{r}
+## Calories Data
+snackCalorieDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\caloricimpacts.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",",skip = 1)
+
+head(snackCalorieDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+## Cost Data
+snackCostDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\costimpacts.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",",skip = 1)
+
+head(snackCostDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+3.  Clean the data set:
+
+Remove the unnecessary rows and columns from the data set not required for further analysis -
+
+**A. USDA Calorie Data Cleanup:**
+
+```{r}
+## Clean up the unnecessary rows based on BALNK 1st column (Unhealthy Snacks)
+snackCalorieDF <- snackCalorieDF %>% filter(X != "" & X.1 != "")
+
+## Remove unnecessary columns
+snackCalorieDF <- snackCalorieDF %>% select(-X.1, -X.2, -contains("Average"))
+names(snackCalorieDF)[1] <- "Comfort_Snack"
+
+snackCalorieDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+**B. USDA Cost Data Cleanup:**
+
+```{r}
+## Clean up the unnecessary rows based on BALNK 1st column (Unhealthy Snacks)
+snackCostDF <- snackCostDF %>% filter(X != "" & X.1 != "")
+
+## Remove unnecessary columns
+snackCostDF <- snackCostDF %>% select(-contains("X."), -contains("Total"))
+names(snackCostDF)[1] <- "Comfort_Snack"
+
+snackCostDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+4.  Use tidyr function gather() to unpivot series of Healthy Snack alternative columns into a valriable called 'Healthy_Snack_Alternative' in both Calorie and Cost Impact data frames: 
+
+**A. USDA snack Calorie Data Transformation:**
+
+```{r}
+snackCalorieDF <- snackCalorieDF %>% gather(key = 'Healthy_Snack_Alternative', value = "Calorie_Impact", -Comfort_Snack) 
+
+snackCalorieDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+Both the Snack columns need further cleanup and standardization so that two data frames can eventually be combined into one data frame for further analysis. As part of the cleanup of 'Comfort_Snack' variable, only the section of the name before the beginning of parenthesis ('(')is kept. For 'Healthy_Snack_Alternative' variable, section of the name appearing before ('..') characters is kept with any dot ('.') character in the resultant string replaced with a space character.
+
+```{r}
+### Clean up 'Comfort_Snack' column
+snackCalorieDF$Comfort_Snack <-
+  str_trim(
+    ifelse(is.na(str_locate(snackCalorieDF$Comfort_Snack,"\\(")[,"start"]), snackCalorieDF$Comfort_Snack,str_sub(snackCalorieDF$Comfort_Snack, 1, str_locate(snackCalorieDF$Comfort_Snack,"\\(")[,"start"] - 1)
+  )
+)
+
+### Cleanup 'Healthy_Snack_Alternative' column    
+snackCalorieDF$Healthy_Snack_Alternative <-
+  str_trim(
+    str_replace(
+      ifelse(is.na(str_locate(snackCalorieDF$Healthy_Snack_Alternative,"\\.\\.")[,"start"]),
+             snackCalorieDF$Healthy_Snack_Alternative,{str_sub(snackCalorieDF$Healthy_Snack_Alternative, 1, str_locate(snackCalorieDF$Healthy_Snack_Alternative,"\\.\\.")[,"start"] - 1)}),"\\."," ")
+    )
+
+snackCalorieDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+**B. USDA snack Cost Data Transformation:**
+
+Apply tidyr gather() to unpivot columns into a variable called 'Healthy_Snack_Alternative' -
+
+```{r}
+snackCostDF <- snackCostDF %>% gather(key = 'Healthy_Snack_Alternative', value = "Cost_Impact", -Comfort_Snack) 
+
+snackCostDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+Cleaning up 'Comfort_Snack' and 'Healthy_Snack_Alternative' variables -
+
+```{r}
+### Clean up 'Comfort_Snack' column
+snackCostDF$Comfort_Snack <-
+  str_trim(
+    ifelse(is.na(str_locate(snackCostDF$Comfort_Snack,"\\(")[,"start"]), snackCostDF$Comfort_Snack,str_sub(snackCostDF$Comfort_Snack, 1, str_locate(snackCostDF$Comfort_Snack,"\\(")[,"start"] - 1)
+  )
+)
+
+### Cleanup 'Healthy_Snack_Alternative' column    
+snackCostDF$Healthy_Snack_Alternative <-
+  str_trim(
+    str_replace(
+      ifelse(is.na(str_locate(snackCostDF$Healthy_Snack_Alternative,"\\.\\.")[,"start"]),
+             snackCostDF$Healthy_Snack_Alternative,{str_sub(snackCostDF$Healthy_Snack_Alternative, 1, str_locate(snackCostDF$Healthy_Snack_Alternative,"\\.\\.")[,"start"] - 1)}),"\\."," ")
+    )
+
+snackCostDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+5.  Merge both Calorie and Cost Impact data frames into one consolidated tidy data frame:
+
+```{r}
+snackDF <- inner_join(snackCalorieDF,snackCostDF)
+
+snackDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+5.  Analysis on the USDA Snack Substitution data set:
+
+#### Healthy Snack : Average Calorie Impact
+
+```{r HealthySnackCalorieImpact, fig.width = 8, fig.height = 8}
+
+healthySnackDF <- snackDF %>% group_by(Healthy_Snack_Alternative) %>% summarise(Avg_Calorie_Impact = mean(Calorie_Impact),Total_Cost_Impact = sum(Cost_Impact)) 
+
+ggplot(healthySnackDF, aes(x = reorder(Healthy_Snack_Alternative,-Avg_Calorie_Impact), y = Avg_Calorie_Impact)) + 
+  geom_bar(stat = "identity", position = "dodge", fill = "steelblue") + 
+  geom_text(aes(label=round(Avg_Calorie_Impact,1)), vjust=-0.5, color="black", position = position_dodge(0.9), size=3.5) +
+  scale_fill_brewer(palette="Paired") + 
+  theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Top Healthy Snack Alternatives based on Average Calorie Impact") +
+  xlab("Healthy Snack Alternative") +  ylab ("Average Calorie Impact")
+  
+```
+
+#### Healthy Snack : Total Cost Impact
+
+```{r HealthySnackCostImpact, fig.width = 8, fig.height = 6}
+
+ggplot(healthySnackDF, aes(x = reorder(Healthy_Snack_Alternative,-Total_Cost_Impact), y = Total_Cost_Impact)) + 
+  geom_bar(stat = "identity", position = "dodge", fill = "orange") + 
+  geom_text(aes(label=Total_Cost_Impact), vjust=-0.5, color="black", position = position_dodge(0.9), size=3.5) +
+  scale_fill_brewer(palette="Paired") + 
+  theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Top Healthy Snack Alternatives based on Cost Impact") +
+  xlab("Healthy Snack Alternative") +  ylab ("Total Cost Impact")
+  
+```
+
+##### Conclusion:
+
+  - Amongst vegetables => Celery, Broccoli and Carrots are the top most Calorie contributing healthy snack alternatives and more affordable compared to comfort snacks.
+  - Tomatoes are better in terms of positive calorie impact, but are more costly healthy snack alternative
+  - Amongst fruits => plums, Oranges, Bananas, Raisins, Applesauce are the top most Calorie contributing healthy snack alternatives and more affordable compared to comfort snacks.
+  - Strawberries, Cantaloupes, Tangerines, Apples are better in terms of positive calorie impact, but are more costly healthy snack alternative

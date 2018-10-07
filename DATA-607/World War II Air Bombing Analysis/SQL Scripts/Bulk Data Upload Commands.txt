@@ -1,0 +1,22 @@
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Project 3/Data Set/datamil-world-war-ii-thor-data/datamil-world-war-ii-thor-data/THOR_WWII_AIRCRAFT_GLOSS.csv' INTO TABLE dimaircraft FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r' IGNORE 1 LINES (gloss_id,aircraft,name,full_name,aircraft_type,hyperlink);
+
+
+#### Had to save the THOR_WWII_WEAPON_GLOSS.csv file into UTF-8 encoded CSV file to handle special characters###
+
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Project 3/Data Set/datamil-world-war-ii-thor-data/datamil-world-war-ii-thor-data/THOR_WWII_WEAPON_GLOSS.csv' INTO TABLE dimweapon CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (weapon_id,country,weapon_name,weapon_type,weapon_class,@number_of_bomblets,alt_weapon_name,weapon_description) SET number_of_bomblets = IF(@number_of_bomblets='',0,@number_of_bomblets);
+
+#### Had to save the THOR_WWII_DATA_CLEAN.csv file into UTF-8 encoded CSV file to handle special characters###
+
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Project 3/Data Set/datamil-world-war-ii-thor-data/datamil-world-war-ii-thor-data/THOR_WWII_DATA_CLEAN.csv' INTO TABLE airbombingops CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (wwii_id,@master_index_number,@msndate,theater,naf,country_flying_mission,@tgt_country_code,tgt_country,tgt_location,tgt_type,@tgt_id,@tgt_industry_code,tgt_industry,source_latitude,source_longitude,@latitude,@longitude,unit_id,mds,aircraft_name,@msn_type,tgt_priority,tgt_priority_explanation,@ac_attacking,@altitude,@altitude_feet,@number_of_he,type_of_he,@lbs_he,@tons_of_he,@number_of_ic,type_of_ic,@lbs_ic,@tons_of_ic,@number_of_frag,type_of_frag,@lbs_frag,@tons_of_frag,@total_lbs,@total_tons,takeoff_base,takeoff_country,@takeoff_latitude,@takeoff_longitude,@ac_lost,@ac_damaged,@ac_airborne,@ac_dropping,time_over_target,sighting_method_code,sighting_explanation,bda,callsign,@rounds_ammo,@spares_return_ac,@wx_fail_ac,@mech_fail_ac,@misc_fail_ac,target_comment,mission_comments,source,database_edit_comments) SET master_index_number = IF(@master_index_number = '',0,@master_index_number), msndate = STR_TO_DATE(@msndate, '%c/%d/%Y'), tgt_country_code = IF(@tgt_country_code = '',0,@tgt_country_code), tgt_id = IF(@tgt_id = '',0,@tgt_id), tgt_industry_code = IF(@tgt_industry_code = '',0,@tgt_industry_code), latitude = IF(@latitude = '',0.00,@latitude), longitude = IF(@longitude = '',0.00,@longitude), msn_type= IF(@msn_type = '',0,@msn_type), ac_attacking= IF(@ac_attacking = '',0,@ac_attacking), altitude = IF(@altitude = '',0.00,@altitude), altitude_feet= IF(@altitude_feet = '',0,@altitude_feet), number_of_he = IF(@number_of_he = '',0.00,@number_of_he), lbs_he = IF(@lbs_he = '',0.00,@lbs_he),  tons_of_he = IF(@tons_of_he = '',0.00,@tons_of_he), number_of_ic = IF(@number_of_ic = '',0.00,@number_of_ic), lbs_ic = IF(@lbs_ic = '',0.00,@lbs_ic), tons_of_ic = IF(@tons_of_ic = '',0.00,@tons_of_ic), number_of_frag = IF(@number_of_frag = '',0.00,@number_of_frag), lbs_frag = IF(@lbs_frag = '',0.00,@lbs_frag), tons_of_frag = IF(@tons_of_frag = '',0.00,@tons_of_frag), total_lbs = IF(@total_lbs = '',0.00,@total_lbs), total_tons = IF(@total_tons = '',0.00,@total_tons), takeoff_latitude = IF(@takeoff_latitude = '',0.00,@takeoff_latitude), takeoff_longitude = IF(@takeoff_longitude = '',0.00,@takeoff_longitude), ac_lost= IF(@ac_lost = '',0,@ac_lost), ac_damaged= IF(@ac_damaged = '',0,@ac_damaged), ac_airborne= IF(@ac_airborne = '',0,@ac_airborne), ac_dropping= IF(@ac_dropping = '',0,@ac_dropping), rounds_ammo= IF(@rounds_ammo = '',0,@rounds_ammo), spares_return_ac= IF(@spares_return_ac = '',0,@spares_return_ac), wx_fail_ac= IF(@wx_fail_ac = '',0,@wx_fail_ac), mech_fail_ac= IF(@mech_fail_ac = '',0,@mech_fail_ac), misc_fail_ac= IF(@misc_fail_ac = '',0,@misc_fail_ac);
+
+
+
+
+
+
+
+
+
+
+
+
