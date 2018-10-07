@@ -32,7 +32,6 @@ library(kableExtra)
 library(stringr)
 library(dplyr)
 library(tidyr)
-library(scales)
 library(ggplot2)
 ```
 
@@ -44,7 +43,7 @@ The dataset presents estimates of international migrant by age, sex and origin. 
 
 **Data Screen Shot**: 
 
-![](C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\images\United Nations Migrants - 2017.png)
+![](./images/United Nations Migrants - 2017.png)
 
 
 Below are the steps to be followed for extracting, cleansing and processing data to generate the final output -
@@ -57,12 +56,12 @@ Below are the steps to be followed for extracting, cleansing and processing data
 
 ```{r}
 ## Male Data
-migrantMaleDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\UN_MigrantStockByOriginAndDestination_2017_M.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",")
+migrantMaleDF <- read.delim("https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Tidy%20Data%20Project/Source%20Data/UN_MigrantStockByOriginAndDestination_2017_M.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",")
 migrantMaleDF$Gender <- "Male"
 head(migrantMaleDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
 
 ## Female Data
-migrantFemaleDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\UN_MigrantStockByOriginAndDestination_2017_F.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",")
+migrantFemaleDF <- read.delim("https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Tidy%20Data%20Project/Source%20Data/UN_MigrantStockByOriginAndDestination_2017_F.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",")
 head(migrantFemaleDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
 migrantFemaleDF$Gender <- "Female"
 ## Merge into one data frame
@@ -72,7 +71,7 @@ head(migrantDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "
 glimpse(migrantDF)
 
 ### Country to Continenet Map
-countryDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\CountryContinentMap.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",")
+countryDF <- read.delim("https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Tidy%20Data%20Project/Source%20Data/UNCountryContinentMap.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",")
 
 ```
 
@@ -105,14 +104,49 @@ migrantDF$no_of_migrants <- as.numeric(migrantDF$no_of_migrants)
 migrantDF <- migrantDF %>% filter(!is.na(no_of_migrants))
 
 ### Lookup and Tag Continenet attribute based on destination_country
-#migrantDF <- migrantDF %>% inner_join(countryDF, by = c("destination_country" = "Country"))
-#migrantDFUS <- migrantDF %>% filter(destination_country == "United States of America" & Year == "2017")
+migrantDF <- migrantDF %>% inner_join(countryDF, by = c("destination_country" = "Country"))
+
 head(migrantDF)  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
 
 ```
 
 
-5.  Data Analysis: Below is a heatmap for 2017 Migrants stock between Origin and Destination countries after applying a filter to only include No. of Migrants > 1M.
+5.  Analyze Data: Summarise the Migratnts data by destination continents to look at the trend of major destination targets for global immigrants.
+
+```{r fig.height = 8, fig.width = 10}
+migrantSummaryDF <- migrantDF %>% group_by(Year, Continent) %>% summarise(Migrant_Count = sum(no_of_migrants))  %>% mutate(Migrant_Count = Migrant_Count/1000000)
+
+ggplot(migrantSummaryDF, aes(x = Continent, y = Migrant_Count, fill = as.character(Year))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label=paste0(round(Migrant_Count,1),"M")), hjust=-0.5, color="black", position = position_dodge(1), size=3.5) +
+  scale_fill_brewer(palette="Paired") +
+  theme(axis.text.x=element_text(angle = 0, vjust = 0.5)) +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom") +
+  ggtitle("Migration Trend By Major Destination Region (1990-2017)") +
+  xlab("Year") +  ylab ("Migrant Count(in Millions)") + 
+  coord_flip()
+
+```
+
+
+6.  Global Trend in Immigration in last few years:   
+
+```{r fig.height = 6, fig.width = 10}
+migrantSummaryDF <- migrantDF %>% group_by(Year) %>% summarise(Migrant_Count = sum(no_of_migrants)) %>% mutate(Migrant_Count = Migrant_Count/1000000) 
+
+#### National Avg. In-State 4 Year Fee Trend Analysis
+ggplot(data=migrantSummaryDF, aes(x=Year,y= Migrant_Count, group=1)) +
+  geom_line(arrow = arrow(), color = "black",size = 1.2)+
+  geom_point(color = "red", size = 3)+
+  theme(axis.text.x=element_text(angle = 0, vjust = 0.5)) +
+  scale_fill_brewer(palette="Paired") + 
+  ggtitle("Global Immigration Trend (1990-2017)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_text(aes(label=paste0(round(Migrant_Count,0),"M")), vjust=-1, color="black", position = position_dodge(0.9), size=3.5) 
+
+```
+
+7.  Below is a heatmap for 2017 Migrants stock between Origin and Destination countries after applying a filter to only include No. of Migrants > 1M.
 
 ```{r fig.height = 8, fig.width = 10}
 migrantDF2017 <- migrantDF %>% filter(Year == "2017") %>% group_by(destination_country, origin_country) %>% summarise(Migrant_Count = sum(no_of_migrants))  %>% mutate(Migrant_Count = Migrant_Count/1000000)
@@ -129,6 +163,7 @@ ggplot(migrantDF2017, aes(y = origin_country, x = destination_country)) +
                                 colour = "darkblue"), 
               panel.grid.minor = element_line(size = 0.25, linetype = 'solid',
                                 colour = "darkblue")) +
+        theme(plot.title = element_text(hjust = 0.5)) +
         scale_fill_gradient(low = "blue", high = "darkred") +
         labs(fill="Migrant Count(in Millions)") +
         ggtitle("2017 Migrants Map Betweek Origina and Destination Countries") 
@@ -140,7 +175,7 @@ ggplot(migrantDF2017, aes(y = origin_country, x = destination_country)) +
 
 In 2017, Mexico tops the chart in terms of no. of immigrants to US. 
 
-6.  Global distribution of Migrants in the year 2017:  
+8.  Global distribution of Migrants in the year 2017:  
 
 ```{r MigrantDistribution, fig.width = 10, fig.height = 5 }
 WorldData <- map_data('world')
@@ -165,7 +200,7 @@ ggplot() +
   theme(panel.border = element_blank())
 ```
 
-7.  Finding Top 10 Migrants destinaton countries in 2017
+9.  Finding Top 10 Migrants destinaton countries in 2017
 
 ```{r Top10Target, fig.width = 8, fig.height = 6}
 
@@ -182,7 +217,7 @@ ggplot(migrantRankDF, aes(x = reorder(destination_country,-Migrant_Count), y = M
   
 ```
 
-8.  Finding Top 10 Origin countries in 2017 contributing to global immigration community:
+10.  Finding Top 10 Origin countries in 2017 contributing to global immigration community:
 
 ```{r Top10Origin, fig.width = 8, fig.height = 6}
 
@@ -199,22 +234,6 @@ ggplot(migrantOriginRankDF, aes(x = reorder(origin_country,-Migrant_Count), y = 
   
 ```
 
-9.  Global Trend in Immigration in last few years:   
-
-```{r fig.height = 6, fig.width = 10}
-migrantSummaryDF <- migrantDF %>% group_by(Year) %>% summarise(Migrant_Count = sum(no_of_migrants)) %>% mutate(Migrant_Count = Migrant_Count/1000000) 
-
-#### National Avg. In-State 4 Year Fee Trend Analysis
-ggplot(data=migrantSummaryDF, aes(x=Year,y= Migrant_Count, group=1)) +
-  geom_line(arrow = arrow(), color = "black",size = 1.2)+
-  geom_point(color = "red", size = 3)+
-  theme(axis.text.x=element_text(angle = 0, vjust = 0.5)) +
-  scale_fill_brewer(palette="Paired") + 
-  ggtitle("Global Immigration Trend (1990-2017)") +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  geom_text(aes(label=paste0(round(Migrant_Count,0),"M")), vjust=-1, color="black", position = position_dodge(0.9), size=3.5) 
-
-```
 
 #### Conclusion:
 
@@ -228,7 +247,7 @@ The dataset presents tuition fees trands from 2004-05 to 2017-18 for In-District
 
 **Data Screen Shot**: 
 
-![](C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\images\\College_Tuition.png)
+![](./images/College_Tuition.png)
 
 Below are the steps to be followed for extracting, cleansing and processing data to generate the final output -
 
@@ -240,7 +259,7 @@ Below are the steps to be followed for extracting, cleansing and processing data
 
 ```{r}
 ## Raw Data
-collegeTuitionDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\2017-trends-college-pricing-souce-data-final_102717.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",",skip = 2)
+collegeTuitionDF <- read.delim("https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Tidy%20Data%20Project/Source%20Data/2017-trends-college-pricing-souce-data-final_102717.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",",skip = 2)
 
 head(collegeTuitionDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
 ```
@@ -354,7 +373,7 @@ college5YrStateRankDF <- collegeTuitionFinalDF %>% select(State, College_Year,`I
 college5YrStateRankDF  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
 
 ggplot(college5YrStateRankDF, aes(x = reorder(State,-`In-State 4 Yr. Tuition Fee`), y = `In-State 4 Yr. Tuition Fee`)) + 
-  geom_bar(stat = "identity", position = "dodge") + 
+  geom_bar(stat = "identity", position = "dodge",fill = "orange") + 
   geom_text(aes(label=paste0("$",round(`In-State 4 Yr. Tuition Fee`,0))), vjust=-0.5, color="black", position = position_dodge(0.9), size=3.5) +
   scale_fill_brewer(palette="Paired") + 
   theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) +
@@ -389,13 +408,13 @@ Below states are consistently ranked the most expensive states in last 5 years -
 
 #### Calorie Impact Data:
 
-![](C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\images\\USDA_Calorie_Impact.png)
+![](./images/USDA_Calorie_Impact.png)
 
 **Note: A negative sign means that caloric intake increases when the snack is replaced with a fruit or vegetable.**
 
 #### Cost Impact Data:
 
-![](C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\images\\USDA_Cost_Impact.png)
+![](./images/USDA_Cost_Impact.png)
 
 **Note: A negative sign means that food costs increase when the snack is replaced with a fruit or vegetable.**
 
@@ -409,12 +428,12 @@ Both USDA Calorie and Cost Impact sheets for snack food substitution Excel Files
 
 ```{r}
 ## Calories Data
-snackCalorieDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\caloricimpacts.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",",skip = 1)
+snackCalorieDF <- read.delim("https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Tidy%20Data%20Project/Source%20Data/caloricimpacts.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",",skip = 1)
 
 head(snackCalorieDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
 
 ## Cost Data
-snackCostDF <- read.delim("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Project 2\\Source Data\\costimpacts.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",",skip = 1)
+snackCostDF <- read.delim("https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Tidy%20Data%20Project/Source%20Data/costimpacts.csv",header = TRUE, stringsAsFactors = FALSE, sep = ",",skip = 1)
 
 head(snackCostDF) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
 
@@ -531,18 +550,19 @@ snackDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", 
 
 #### Healthy Snack : Average Calorie Impact
 
-```{r HealthySnackCalorieImpact, fig.width = 8, fig.height = 8}
+```{r HealthySnackCalorieImpact, fig.width = 10, fig.height = 8}
 
 healthySnackDF <- snackDF %>% group_by(Healthy_Snack_Alternative) %>% summarise(Avg_Calorie_Impact = mean(Calorie_Impact),Total_Cost_Impact = sum(Cost_Impact)) 
 
-ggplot(healthySnackDF, aes(x = reorder(Healthy_Snack_Alternative,-Avg_Calorie_Impact), y = Avg_Calorie_Impact)) + 
+ggplot(healthySnackDF, aes(x = reorder(Healthy_Snack_Alternative,Avg_Calorie_Impact), y = Avg_Calorie_Impact)) + 
   geom_bar(stat = "identity", position = "dodge", fill = "steelblue") + 
-  geom_text(aes(label=round(Avg_Calorie_Impact,1)), vjust=-0.5, color="black", position = position_dodge(0.9), size=3.5) +
+  geom_text(aes(label=round(Avg_Calorie_Impact,1)), hjust=-0.5, color="black", position = position_dodge(0.9), size=3.5) +
   scale_fill_brewer(palette="Paired") + 
-  theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) +
+  theme(axis.text.x=element_text(angle = 0, vjust = 0.5)) +
   theme(plot.title = element_text(hjust = 0.5)) +
   ggtitle("Top Healthy Snack Alternatives based on Average Calorie Impact") +
-  xlab("Healthy Snack Alternative") +  ylab ("Average Calorie Impact")
+  xlab("Healthy Snack Alternative") +  ylab ("Average Calorie Impact") +
+  coord_flip()
   
 ```
 
@@ -550,14 +570,18 @@ ggplot(healthySnackDF, aes(x = reorder(Healthy_Snack_Alternative,-Avg_Calorie_Im
 
 ```{r HealthySnackCostImpact, fig.width = 8, fig.height = 6}
 
-ggplot(healthySnackDF, aes(x = reorder(Healthy_Snack_Alternative,-Total_Cost_Impact), y = Total_Cost_Impact)) + 
-  geom_bar(stat = "identity", position = "dodge", fill = "orange") + 
-  geom_text(aes(label=Total_Cost_Impact), vjust=-0.5, color="black", position = position_dodge(0.9), size=3.5) +
-  scale_fill_brewer(palette="Paired") + 
-  theme(axis.text.x=element_text(angle = 45, vjust = 0.5)) +
-  theme(plot.title = element_text(hjust = 0.5)) +
+### Derive a Cost Impact indicator variable
+healthySnackDF$CostImpact = ifelse(healthySnackDF$Total_Cost_Impact >= 0, "above", "below")
+
+ggplot(healthySnackDF, aes(x = reorder(Healthy_Snack_Alternative,Total_Cost_Impact), y = Total_Cost_Impact)) +
+  geom_bar(stat = "identity", position = "dodge",aes(fill = CostImpact)) +
+  scale_fill_manual(name="Cost Impact", 
+                   labels = c("Less Costly Substitue", "More Costly Substitute"), 
+                   values = c("above"="#00ba38", "below"="#f8766d")) + 
   ggtitle("Top Healthy Snack Alternatives based on Cost Impact") +
-  xlab("Healthy Snack Alternative") +  ylab ("Total Cost Impact")
+  theme(plot.title = element_text(hjust = 0.5),legend.position = "bottom") +
+  xlab("Healthy Snack Alternative") +  ylab ("Total Cost Impact") +
+  coord_flip()
   
 ```
 
