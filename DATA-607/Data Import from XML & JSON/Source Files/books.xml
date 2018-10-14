@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<dwh_books>
+	<book id="1">
+		<title>Agile Data Warehouse Design: Collaborative Dimensional Modeling, from Whiteboard to Star Schema</title>
+		<authors>
+				<author>Jim Stagnitto</author>
+				<author>Lawrence Corr</author>
+		</authors>
+		<publish_date>April 16, 2011</publish_date>
+		<price>$35.37</price>
+		<publisher>Decision Press</publisher>
+	</book>
+	<book id="2">
+		<title>The Data Warehouse Toolkit: The Complete Guide to Dimensional Modeling</title>
+		<authors>
+				<author>Ralph Kimball</author>
+		</authors>
+		<publish_date>March 16, 1996</publish_date>
+		<price>$16.97</price>
+		<publisher>Wiley</publisher>
+	</book>
+	<book id="3">
+		<title>Data Warehouse Systems: Design and Implementation</title>
+		<authors>
+				<author>Alejandro Vaisman</author>
+				<author>Esteban Zimányi</author>
+		</authors>
+		<publish_date>September 10, 2014</publish_date>
+		<price>$89.99</price>
+		<publisher>Springer</publisher>
+	</book>
+</dwh_books>
