@@ -20,20 +20,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### Assignment Summary:
 
-Below is the summary of the assignment - 
+Below is the summary of the assignment -
 
 ![](./Images/assignment7_image.png)
+
 
 ### R Libraries:
 
 Load necessary libraries -
 
 ```{r message=FALSE, warning=FALSE}
+library(RCurl)
 library(kableExtra)
 library(stringr)
 library(plyr)
 library(XML)
-#library(RJSONIO)
 library(jsonlite)
 library(rvest)
 
@@ -65,7 +66,8 @@ Below are the steps to be followed to generate the final output -
 
 ```{r}
 #Reading in the HTML Code
-htmlURL <- "C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Week7 Assignment\\Source Files\\books.html"
+htmlURL <- "http://htmlpreview.github.io/?https://github.com/soumya2g/R-CUNY-MSDS/blob/master/DATA-607/Data%20Import%20from%20XML%20%26%20JSON/Source%20Files/books.html"
+
 
 #Parsing the Code using htmlParse
 parsedHTML <- htmlParse(file = htmlURL)
@@ -77,10 +79,11 @@ parsedHTML
 
 ```{r}
 #Reading in the XML Code
-xmlURL <- "C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Week7 Assignment\\Source Files\\books.xml"
+
+xmlData <- getURL('https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Data%20Import%20from%20XML%20%26%20JSON/Source%20Files/books.xml', ssl.verifyhost=FALSE, ssl.verifypeer=FALSE)
 
 #Parsing the Code using xmlParse
-parsedXML <- xmlParse(file = xmlURL)
+parsedXML <- xmlParse(file = xmlData[1])
 parsedXML
 
 ```
@@ -89,7 +92,7 @@ parsedXML
 
 ```{r}
 #Reading in the JSON Code
-jsonURL <- "C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Week7 Assignment\\Source Files\\books.json"
+jsonURL <- "https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Data%20Import%20from%20XML%20%26%20JSON/Source%20Files/books.json"
 
 #Parsing the Code using fromJSON
 parsedJSON <- fromJSON(jsonURL)
@@ -103,14 +106,13 @@ parsedJSON
 ### 3.1 HTML File:
 
 ```{r}
-
 ### rvest Method ####
-#Reading in the HTML Code
-htmlURL <- read_html("C:\\CUNY\\Semester1 (Fall)\\DATA 607\\Week7 Assignment\\Source Files\\books.html")
+htmlURL <- "https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-607/Data%20Import%20from%20XML%20%26%20JSON/Source%20Files/books.html"
 
-print(htmlURL)
 
-tables <- html_nodes(htmlURL,"table")
+#Parsing the Code using htmlParse
+readHtml <- read_html(htmlURL)
+tables <- html_nodes(readHtml,"table")
 tables_ls <- html_table(tables, fill = TRUE)
 tableDF <- as.data.frame(tables_ls)
 
