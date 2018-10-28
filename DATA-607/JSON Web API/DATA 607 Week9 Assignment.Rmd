@@ -1,0 +1,173 @@
+---
+title: "DATA 607 Week9 Assignment - Working with Web APIs in R"
+author: "Soumya Ghosh"
+date: "October 27, 2018"
+output: 
+  html_document: 
+    toc: true
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+  #  code_folding:hide
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Assignment Summary:
+
+Below is the summary of the assignment -
+
+![](./Images/Assignment_Summary.png)
+
+
+### R Libraries:
+
+Load necessary libraries -
+
+```{r message=FALSE, warning=FALSE}
+library(kableExtra)
+library(rvest)
+library(httr)
+library(jsonlite)
+library(data.table)
+
+```
+
+### Assignment Goal :
+
+#####  **Purpose**: This R Code is written like an Interface program which will receive the API URL and the API Key.
+#####           The JSON response received by the API Call will be flattened and transformed into a R data frame.  
+#####
+#####  **Note:**    New York Time API Development site has been used as an example here. But this interface program 
+#####           is generic and can be used for any API based Web data source with a JSON response. 
+
+
+Below are the steps to be followed to generate the final output -
+
+1.  I have registered in the New York Time Developer Web site (http://developer.nytimes.com/) and got below API Key -
+
+```{r}
+
+API_Key = "31b8d9353fbb4fbdb9c1d4d9c32dd991"
+
+```
+
+
+2.  I have picked following API to test the output of the R Function:
+
+### API screenshot:
+
+![](./Images/chosen_api.png)
+
+3. Below is a quick snapshot of the required API parameters for the chosen API and the nested JSON structure of a successful response denoted by response code 200 from the New Yprk Times API server -  
+
+### API Parameter Request and Response Structure :
+
+![](./Images/API_Parameter_Response.png)
+
+### API URL:
+
+For the purpose of demonstrating the functianlity of this R API Interface program, I have chosen **'all-sections'** as a section and **'1'** as the no. of days. So the resultant API URL will looks like below -
+
+```{r}
+
+url <- "https://api.nytimes.com/svc/mostpopular/v2/mostemailed/all-sections/1.json"
+
+```
+
+### R Interface Funtion :
+
+I have created a R function called **'GetAPIResponse'** which will require the API URL and the API Key as the input and it will return the Flat R Data Frame containing the API's JSON response data.
+
+```{r}
+GetAPIResponse <- function(API_URL,API_Key)
+{
+  apiResponse <- GET(API_URL, add_headers('api-key' = API_Key))
+  print(apiResponse)
+  
+  responseContent <- content(apiResponse,"text")
+
+  raw_df <- as.data.frame(fromJSON(responseContent, simplifyDataFrame = T, flatten = T), stringsAsFactors = FALSE)
+  str(raw_df)  
+  
+  
+# One way to "flatten" the API's JSON response is to "fix" the list columns. There are three possible fixes - 
+# 
+# 1. flatten function (from "jsonlite") will take care of columns with type data frame .
+# 2. Columns of type list can be fixed using toString, which would convert each element to a comma separated item or which can be converted into multiple columns.
+# 3. Columns where there are data.frames, some with multiple rows, first need to be flattened into a single row (by transforming to a "wide" format) and then need to be bound together as a single data.table.(I'm using "data.table" for reshaping and for binding the rows together).
+                                                                                                                                                                                                            
+  columnFixer <- function(x, vec2col = FALSE)
+  {
+    if (!is.list(x[[1]])) {
+      if (isTRUE(vec2col)) {
+        as.data.table(data.table::transpose(x))
+      } else {
+        vapply(x, toString, character(1L))
+      }
+    } else {
+      temp <- rbindlist(x, use.names = TRUE, fill = TRUE, idcol = TRUE)
+      temp[, .time := sequence(.N), by = .id]
+      value_vars <- setdiff(names(temp), c(".id", ".time"))
+      dcast(temp, .id ~ .time, value.var = value_vars)[, .id := NULL]
+    }
+  }
+
+#  We can take care of the second and third points with a function like the following:
+  
+  Flattener <- function(input_df, vec2col = FALSE) {
+    input_df <- flatten(input_df)
+    listColumns <- sapply(input_df, is.list)
+    newCols <- do.call(cbind, lapply(input_df[listColumns], columnFixer, vec2col))
+    input_df[listColumns] <- list(NULL)
+    cbind(input_df, newCols)
+  }
+
+
+  ### 1st Flattenr() Function Call 
+  
+  final_df <- Flattener(raw_df,vec2col = FALSE)
+  
+  ### Check if there is any other nested List or Data Frame columns 
+  
+  listColumnsVec <- sapply(final_df, is.list)
+  
+  ### Recursively call the Flattenr() function until the resultset is completely flattened 
+  
+  while(!is.na(table(listColumnsVec)["TRUE"]))
+  {
+    final_df <- Flattener(final_df,vec2col = FALSE)
+    listColumnsVec <- sapply(final_df, is.list)
+  }
+  
+  ## Return the resultset 
+  return(final_df)
+
+}
+
+```
+
+### Calling R API Interface Function:
+
+```{r}
+
+### API Response Function call 
+
+responseDF <- GetAPIResponse (url,API_Key)
+
+#### Final result Data Frame 
+
+responseDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="400px")
+
+
+```
+
+### Conclusion:
+
+**GetAPIResponse (url,API_Key)** function is a generic reusable function that can be used to extract data from any API data  source that returns JSON response as a flat R data frame. For New York Time API source, the response was being limited to 20 results by the source. I am going to continue to test my function against a variety of JSON API data sources in future with less restrictions to test the scalability of this code. 
+
