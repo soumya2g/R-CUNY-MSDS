@@ -24,6 +24,9 @@ Below is the summary of the assignment -
 
 ![](./Images/Assignment_Summary.png)
 
+### GitHub Location:
+
+https://github.com/soumya2g/R-CUNY-MSDS/tree/master/DATA-607/JSON%20Web%20API
 
 ### R Libraries:
 
@@ -87,13 +90,28 @@ I have created a R function called **'GetAPIResponse'** which will require the A
 ```{r}
 GetAPIResponse <- function(API_URL,API_Key)
 {
-  apiResponse <- GET(API_URL, add_headers('api-key' = API_Key))
-  print(apiResponse)
+  ## Calculate the total page count since the source only provides 20 results per page
+  initialResponse <- GET(API_URL, add_headers('api-key'=API_Key))
+  initialContent <- content(initialResponse,"text")
   
-  responseContent <- content(apiResponse,"text")
+  initialQuery <- fromJSON(initialContent)
+  maxPages <- round((initialQuery$num_results/ 20)-1) 
+  
+  ## Query the source based on the page count and append to a list of data frames 
+  pages <- list()
+  for(i in 0:maxPages){
+    apiResponse <- GET(API_URL, add_headers('api-key'=API_Key,'page'=i))
+    responseContent <- content(apiResponse,"text")
 
-  raw_df <- as.data.frame(fromJSON(responseContent, simplifyDataFrame = T, flatten = T), stringsAsFactors = FALSE)
-  str(raw_df)  
+    raw_df <- as.data.frame(fromJSON(responseContent, simplifyDataFrame = T, flatten = T), stringsAsFactors = FALSE)
+    pages[[i+1]] <- raw_df 
+    Sys.sleep(1) 
+  }
+
+  ## Merge the list of data frames into one data frame
+  allPagesDF <- rbind_pages(pages)
+  
+  str(allPagesDF)  
   
   
 # One way to "flatten" the API's JSON response is to "fix" the list columns. There are three possible fixes - 
@@ -131,7 +149,7 @@ GetAPIResponse <- function(API_URL,API_Key)
 
   ### 1st Flattenr() Function Call 
   
-  final_df <- Flattener(raw_df,vec2col = FALSE)
+  final_df <- Flattener(allPagesDF,vec2col = FALSE)
   
   ### Check if there is any other nested List or Data Frame columns 
   
@@ -169,5 +187,5 @@ responseDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover
 
 ### Conclusion:
 
-**GetAPIResponse (url,API_Key)** function is a generic reusable function that can be used to extract data from any API data  source that returns JSON response as a flat R data frame. For New York Time API source, the response was being limited to 20 results by the source. I am going to continue to test my function against a variety of JSON API data sources in future with less restrictions to test the scalability of this code. 
+**GetAPIResponse (url,API_Key)** function is a generic reusable function that can be used to extract data from any API data  source that returns JSON response as a flat R data frame.I am going to continue to test my function against a variety of JSON API data sources in future with less restrictions to test the scalability of this code. 
 
