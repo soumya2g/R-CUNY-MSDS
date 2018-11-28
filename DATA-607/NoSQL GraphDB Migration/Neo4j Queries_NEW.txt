@@ -1,0 +1,59 @@
+## Delete all nodes and relationships
+MATCH (n) DETACH DELETE n;
+
+## Airport
+LOAD CSV WITH HEADERS FROM 'file:///airports.csv' as line
+CREATE (airport:Airport {id:line.faa})
+SET airport.name = line.name,
+	airport.latitude = TOFLOAT(line.lat),
+	airport.logitude = TOFLOAT(line.lon),
+	airport.altitude = TOINT(line.alt),
+	airport.timezone = TOINT(line.tz),
+	airport.dst = line.dst
+RETURN airport;
+
+## Flights
+LOAD CSV WITH HEADERS FROM 'file:///flights.csv' as line
+CREATE (flight:Flight {id:TOINT(line.flight)})
+SET flight.carrier = line.carrier
+RETURN flight;
+
+
+LOAD CSV WITH HEADERS FROM 'file:///flights.csv' as line
+CREATE (flight:Flight {id:line.flight_desc})
+SET flight.name = line.flight_desc,
+	flight.carrier = line.carrier,
+	flight.number = line.flight
+RETURN flight;
+
+## Flights -> Origin Airport
+LOAD CSV WITH HEADERS FROM 'file:///flight_airport.csv' as line
+MATCH (flight:Flight {id:line.flight_desc})
+MATCH (airport:Airport {id:line.origin})
+
+CREATE (flight)-[:ORIGIN]->(airport)
+RETURN flight,airport;
+
+## Flights -> Destination Airport
+LOAD CSV WITH HEADERS FROM 'file:///flight_airport.csv' as line
+MATCH (flight:Flight {id:line.flight_desc})
+MATCH (airport:Airport {id:line.dest})
+
+CREATE (flight)-[:DESTINATION]->(airport)
+RETURN flight,airport;
+
+### Flight Dates
+LOAD CSV WITH HEADERS FROM 'file:///flight_dates.csv' as line
+CREATE (date:Date {id:line.date})
+SET date.day = line.day,
+	date.month = line.month,
+	date.year = line.year
+RETURN date;
+
+## Flights -> Date
+LOAD CSV WITH HEADERS FROM 'file:///flight_airport.csv' as line
+MATCH (flight:Flight {id:line.flight_desc})
+MATCH (airport:Airport {id:line.origin})
+
+CREATE (flight)-[:ORIGIN]->(airport)
+RETURN flight,airport;
