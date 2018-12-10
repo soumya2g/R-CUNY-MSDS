@@ -1,0 +1,133 @@
+---
+title: "PyramidTest"
+author: "Soumya Ghosh"
+date: "December 9, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+library(XML)
+library(reshape2)
+library(plyr)
+library(ggplot2)
+library(rCharts)
+#source('./pyramids.R')
+
+```
+
+```{r}
+
+getAgeTable2 <- function(country, year) {
+  c1 <- "http://www.census.gov/population/international/data/idb/region.php?N=%20Results%20&T=10&A=separate&RT=0&Y="  
+  c2 <- "&R=-1&C="
+  yrs <- gsub(" ", "", toString(year))
+  url <- paste0(c1, yrs, c2, country)
+  df <- data.frame(readHTMLTable(url))
+  nms <- c("Year", "Age", "total", "Male", "Female", "percent", "pctMale", "pctFemale", "sexratio")  
+  names(df) <- nms  
+  cols <- c(1, 3:9)
+  df[,cols] <- apply(df[,cols], 2, function(x) as.numeric(as.character(gsub(",", "", x))))
+  df <- df[df$Age != 'Total', ]  
+  ord <- 1:nrow(df)
+  df <- cbind(df, ord)
+  return(df)
+}
+
+
+## -----------------------------------------------------------
+## DimpleJS pyramid
+
+dPyramid <- function(dat, colors=NULL) {
+  #dat <- getAgeTable(country, year)
+  year <- sort(unique(dat$Year))
+  dat$Male <- -1 * dat$Male
+  
+  keep <- c("Year", "Age", "Male", "Female", "ord")
+  
+  dat.sub <- dat[,keep]
+  
+  dat.melt <- melt(dat.sub, 
+                   value.name='Population', 
+                   variable.name = 'Gender', 
+                   id.vars=c('Age', 'ord', 'Year') )
+  
+  dat.melt$gencode <- ifelse(dat.melt$Gender == 'Male', 1, 2)
+  
+  d1 <- dPlot(
+    x = "Population", 
+    y = "Age", 
+    groups = "Gender", 
+    data = dat.melt, 
+    type = 'bar')
+  
+  
+  d1$yAxis(type = "addCategoryAxis", orderRule = "ord")
+  d1$xAxis(type = "addMeasureAxis")
+  d1$legend( x = 60, y = 10, width = 700, height = 20, horizontalAlign = "right")
+  
+  if (!is.null(colors)){
+    d1$colorAxis(
+      type = "addColorAxis", 
+      colorSeries = "gencode", 
+      palette = colors
+    )
+  }
+  if (length(year) > 1) {
+    d1$set(storyboard = "Year")
+    max_x <- round_any(max(dat.melt$Population), 10000, f = ceiling)
+    min_x <- round_any(min(dat.melt$Population), 10000, f = floor)
+    d1$xAxis(overrideMax = max_x, overrideMin = min_x)
+  }
+  
+  if (max(dat.melt$Population >= 1000000)) {
+    d1$setTemplate( afterScript = 
+                      "
+                    <script>
+                    x._getFormat = function () {
+                    return function(d) {
+                    return d3.format(',.1f')(Math.abs(d) / 1000000) + 'm';
+                    };
+                    };
+                    myChart.draw()
+                    </script>
+                    ")
+  } else {
+    d1$setTemplate( afterScript = 
+                      "
+                    <script>
+                    x._getFormat = function () {
+                    return function(d) {
+                    return d3.format(',.0f')(Math.abs(d) / 1000) + 'k';
+                    };
+                    };
+                    myChart.draw()
+                    </script>
+                    ")
+  }
+  
+  d1
+}
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+popGH2m <- getAgeTable2(country = 'FR', year = seq(2000, 2050, 10))
+n3 <- dPyramid(popGH2m, colors = c('blue', 'silver'))
+n3
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

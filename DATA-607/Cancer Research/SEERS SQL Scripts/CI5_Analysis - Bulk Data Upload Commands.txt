@@ -1,0 +1,960 @@
+### CI5 Diagnostic Units Master Data ####
+
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Dim_Diagnostic_Units.csv' INTO TABLE Diagnostic_Units_Master CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerCode, 
+DiagCode, 
+DiagUnitLvl0Desc, 
+DiagUnitLvl1Desc, 
+DiagUnitLvl1CodeDesc, 
+SEERDiagnosticUnit, 
+SEERDiagnosticUnitDesc);
+
+
+### CI5 Cancer Registry Master Data ####
+
+### Africa ####
+
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Cancer Registry Master/Africa.csv' INTO TABLE Cancer_Registry_Master CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+CancerRegistryDesc,
+Year1, 
+Year2);
+
+### Update Country & Continent ###
+
+Update Cancer_Registry_Master set Continent = 'Africa', Country = substring(CancerRegistryDesc,1,instr(CancerRegistryDesc,'_')-1) where Continent is null;
+
+### Americas ####
+
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Cancer Registry Master/Americas.csv' INTO TABLE Cancer_Registry_Master CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+CancerRegistryDesc,
+Year1, 
+Year2);
+
+### Update Country & Continent ###
+
+Update Cancer_Registry_Master set Continent = 'Americas', Country = substring(CancerRegistryDesc,1,instr(CancerRegistryDesc,'_')-1) where Continent is null;
+
+### Asia ####
+
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Cancer Registry Master/Asia.csv' INTO TABLE Cancer_Registry_Master CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+CancerRegistryDesc,
+Year1, 
+Year2);
+
+### Update Country & Continent ###
+
+Update Cancer_Registry_Master set Continent = 'Asia', Country = substring(CancerRegistryDesc,1,instr(CancerRegistryDesc,'_')-1) where Continent is null;
+
+Update Cancer_Registry_Master set Continent = 'Asia', Country = substring(CancerRegistryDesc,1,instr(CancerRegistryDesc,'-')-1) where Continent is null or Country = '';
+
+Update Cancer_Registry_Master set Continent = 'Asia', Country = CancerRegistryDesc where Continent is null or Country = '';
+
+### Europe ####
+
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Cancer Registry Master/Europe.csv' INTO TABLE Cancer_Registry_Master CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+CancerRegistryDesc,
+Year1, 
+Year2);
+
+### Update Country & Continent ###
+
+Update Cancer_Registry_Master set Continent = 'Europe', Country = substring(CancerRegistryDesc,1,instr(CancerRegistryDesc,'_')-1) where Continent is null;
+
+Update Cancer_Registry_Master set Continent = 'Europe', Country = CancerRegistryDesc where Continent is null or Country = '';
+
+### Oceania ####
+
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Cancer Registry Master/Oceania.csv' INTO TABLE Cancer_Registry_Master CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+CancerRegistryDesc,
+Year1, 
+Year2);
+
+### Update Country & Continent ###
+
+Update Cancer_Registry_Master set Continent = 'Oceania', Country = substring(CancerRegistryDesc,1,instr(CancerRegistryDesc,'_')-1) where Continent is null;
+
+Update Cancer_Registry_Master set Continent = 'Oceania', Country = 'New Zealand' where Country = 'New';
+
+
+### Cancer MV (Microscopically Verified) Cases ##
+
+### Africa ###
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Cancer MV Cases/Africa_Cases_MV.csv' INTO TABLE Cancer_Cases_Summary CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+Year,
+@Sex, 
+CancerCode,
+TotalCases,
+Age_0_4,
+Age_5_9,
+Age_10_14,
+Age_15_19,
+Age_20_24,
+Age_25_29,
+Age_30_34,
+Age_35_39,
+Age_40_44,
+Age_45_49,
+Age_50_54,
+Age_55_59,
+Age_60_64,
+Age_65_69,
+Age_70_74,
+Age_75_79,
+Age_80_84,
+Age_85Plus,
+Age_Unk
+)
+SET
+Sex = IF(@Sex = '1','M','F'); 
+
+### Americas ###
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Cancer MV Cases/Americas_Cases_MV.csv' INTO TABLE Cancer_Cases_Summary CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+Year,
+@Sex, 
+CancerCode,
+TotalCases,
+Age_0_4,
+Age_5_9,
+Age_10_14,
+Age_15_19,
+Age_20_24,
+Age_25_29,
+Age_30_34,
+Age_35_39,
+Age_40_44,
+Age_45_49,
+Age_50_54,
+Age_55_59,
+Age_60_64,
+Age_65_69,
+Age_70_74,
+Age_75_79,
+Age_80_84,
+Age_85Plus,
+Age_Unk
+)
+SET
+Sex = IF(@Sex = '1','M','F'); 
+
+### Asia ###
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Cancer MV Cases/Asia_Cases_MV.csv' INTO TABLE Cancer_Cases_Summary CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+Year,
+@Sex, 
+CancerCode,
+TotalCases,
+Age_0_4,
+Age_5_9,
+Age_10_14,
+Age_15_19,
+Age_20_24,
+Age_25_29,
+Age_30_34,
+Age_35_39,
+Age_40_44,
+Age_45_49,
+Age_50_54,
+Age_55_59,
+Age_60_64,
+Age_65_69,
+Age_70_74,
+Age_75_79,
+Age_80_84,
+Age_85Plus,
+Age_Unk
+)
+SET
+Sex = IF(@Sex = '1','M','F'); 
+
+### Europe ###
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Cancer MV Cases/Europe_Cases_MV.csv' INTO TABLE Cancer_Cases_Summary CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+Year,
+@Sex, 
+CancerCode,
+TotalCases,
+Age_0_4,
+Age_5_9,
+Age_10_14,
+Age_15_19,
+Age_20_24,
+Age_25_29,
+Age_30_34,
+Age_35_39,
+Age_40_44,
+Age_45_49,
+Age_50_54,
+Age_55_59,
+Age_60_64,
+Age_65_69,
+Age_70_74,
+Age_75_79,
+Age_80_84,
+Age_85Plus,
+Age_Unk
+)
+SET
+Sex = IF(@Sex = '1','M','F'); 
+
+### Oceania ###
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Cancer MV Cases/Oceania_Cases_MV.csv' INTO TABLE Cancer_Cases_Summary CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+Year,
+@Sex, 
+CancerCode,
+TotalCases,
+Age_0_4,
+Age_5_9,
+Age_10_14,
+Age_15_19,
+Age_20_24,
+Age_25_29,
+Age_30_34,
+Age_35_39,
+Age_40_44,
+Age_45_49,
+Age_50_54,
+Age_55_59,
+Age_60_64,
+Age_65_69,
+Age_70_74,
+Age_75_79,
+Age_80_84,
+Age_85Plus,
+Age_Unk
+)
+SET
+Sex = IF(@Sex = '1','M','F');
+
+##### Cancer Cases Details
+
+INSERT INTO  Cancer_Cases_Details (CancerRegistryID,Year,Sex,CancerCode,AgeGroup,TotalCases)
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '0 - 4' As AgeGroup,
+  Age_0_4 as TotalCases 
+from 
+ Cancer_Cases_Summary
+
+where 
+Age_0_4 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '5 - 9' As AgeGroup,
+  Age_5_9 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where 
+Age_5_9 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '10 - 14' As AgeGroup,
+  Age_10_14 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where
+ Age_10_14 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '15 - 19' As AgeGroup,
+  Age_15_19 as TotalCases 
+from
+ Cancer_Cases_Summary
+
+where
+ Age_15_19 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '20 - 24' As AgeGroup,
+  Age_20_24 as TotalCases 
+from
+ Cancer_Cases_Summary
+
+where
+ Age_20_24 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '25 - 29' As AgeGroup,
+  Age_25_29 as TotalCases 
+from
+ Cancer_Cases_Summary
+
+where
+ Age_25_29 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '30 - 34' As AgeGroup,
+  Age_30_34 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where Age_30_34 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '35 - 39' As AgeGroup,
+  Age_35_39 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where Age_35_39 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '40 - 44' As AgeGroup,
+  Age_10_14 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where Age_40_44 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '45 - 49' As AgeGroup,
+  Age_45_49 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where Age_45_49 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '50 - 54' As AgeGroup,
+  Age_50_54 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where Age_50_54 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '55 - 59' As AgeGroup,
+  Age_55_59 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where
+ Age_55_59 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '60 - 64' As AgeGroup,
+  Age_60_64 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where 
+Age_60_64 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '65 - 69' As AgeGroup,
+  Age_65_69 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where
+ Age_65_69 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '70 - 74' As AgeGroup,
+  Age_70_74 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where
+ Age_70_74 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '75 - 79' As AgeGroup,
+  Age_75_79 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where
+ Age_75_79 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '80 - 84' As AgeGroup,
+  Age_80_84 as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where 
+Age_80_84 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  '85+' As AgeGroup,
+  Age_85Plus as TotalCases
+ from
+ Cancer_Cases_Summary
+
+where 
+Age_85Plus > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  CancerCode,
+  'Unknown' As AgeGroup,
+  Age_Unk  as TotalCases 
+from
+ Cancer_Cases_Summary
+
+where
+ Age_Unk  > 0;
+
+### Population Data ##
+
+### Africa ###
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Population/Africa_Pops.csv' INTO TABLE Population_Summary CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+Year,
+@Sex, 
+TotalPopulation,
+Age_0_4,
+Age_5_9,
+Age_10_14,
+Age_15_19,
+Age_20_24,
+Age_25_29,
+Age_30_34,
+Age_35_39,
+Age_40_44,
+Age_45_49,
+Age_50_54,
+Age_55_59,
+Age_60_64,
+Age_65_69,
+Age_70_74,
+Age_75_79,
+Age_80_84,
+Age_85Plus
+)
+SET
+Sex = IF(@Sex = '1','M','F'); 
+
+### Americas ###
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Population/Americas_Pops.csv' INTO TABLE Population_Summary CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+Year,
+@Sex, 
+TotalPopulation,
+Age_0_4,
+Age_5_9,
+Age_10_14,
+Age_15_19,
+Age_20_24,
+Age_25_29,
+Age_30_34,
+Age_35_39,
+Age_40_44,
+Age_45_49,
+Age_50_54,
+Age_55_59,
+Age_60_64,
+Age_65_69,
+Age_70_74,
+Age_75_79,
+Age_80_84,
+Age_85Plus
+)
+SET
+Sex = IF(@Sex = '1','M','F'); 
+
+### Asia ###
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Population/Asia_Pops.csv' INTO TABLE Population_Summary CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+Year,
+@Sex, 
+TotalPopulation,
+Age_0_4,
+Age_5_9,
+Age_10_14,
+Age_15_19,
+Age_20_24,
+Age_25_29,
+Age_30_34,
+Age_35_39,
+Age_40_44,
+Age_45_49,
+Age_50_54,
+Age_55_59,
+Age_60_64,
+Age_65_69,
+Age_70_74,
+Age_75_79,
+Age_80_84,
+Age_85Plus
+)
+SET
+Sex = IF(@Sex = '1','M','F'); 
+
+### Europe ###
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Population/Europe_Pops.csv' INTO TABLE Population_Summary CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+Year,
+@Sex, 
+TotalPopulation,
+Age_0_4,
+Age_5_9,
+Age_10_14,
+Age_15_19,
+Age_20_24,
+Age_25_29,
+Age_30_34,
+Age_35_39,
+Age_40_44,
+Age_45_49,
+Age_50_54,
+Age_55_59,
+Age_60_64,
+Age_65_69,
+Age_70_74,
+Age_75_79,
+Age_80_84,
+Age_85Plus
+)
+SET
+Sex = IF(@Sex = '1','M','F'); 
+
+### Oceania ###
+LOAD DATA INFILE 'C:/CUNY/Semester1 (Fall)/DATA 607/Final Project/CI5 Dataset/Data Sources/Population/Oceania_Pops.csv' INTO TABLE Population_Summary CHARACTER SET utf8 FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 LINES (
+CancerRegistryID,
+Year,
+@Sex, 
+TotalPopulation,
+Age_0_4,
+Age_5_9,
+Age_10_14,
+Age_15_19,
+Age_20_24,
+Age_25_29,
+Age_30_34,
+Age_35_39,
+Age_40_44,
+Age_45_49,
+Age_50_54,
+Age_55_59,
+Age_60_64,
+Age_65_69,
+Age_70_74,
+Age_75_79,
+Age_80_84,
+Age_85Plus
+)
+SET
+Sex = IF(@Sex = '1','M','F');
+
+##### Population Details
+
+INSERT INTO  Population_Details (CancerRegistryID,Year,Sex,AgeGroup,TotalPopulation)
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '0 - 4' As AgeGroup,
+  Age_0_4 as TotalPopulation 
+from 
+ Population_Summary
+where 
+Age_0_4 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '5 - 9' As AgeGroup,
+  Age_5_9 as TotalPopulation from
+ Population_Summary
+where 
+Age_5_9 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '10 - 14' As AgeGroup,
+  Age_10_14 as TotalPopulation from
+ Population_Summary
+where
+ Age_10_14 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '15 - 19' As AgeGroup,
+  Age_15_19 as TotalPopulation
+ from
+ Population_Summary
+
+where
+ Age_15_19 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '20 - 24' As AgeGroup,
+  Age_20_24 as TotalPopulation 
+from
+ Population_Summary
+where
+ Age_20_24 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '25 - 29' As AgeGroup,
+  Age_25_29 as TotalPopulation 
+from
+ Population_Summary
+
+where
+ Age_25_29 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '30 - 34' As AgeGroup,
+  Age_30_34 as TotalPopulation from
+ Population_Summary
+where Age_30_34 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '35 - 39' As AgeGroup,
+  Age_35_39 as TotalPopulation from
+ Population_Summary
+where Age_35_39 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '40 - 44' As AgeGroup,
+  Age_10_14 as TotalPopulation from
+ Population_Summary
+
+where Age_40_44 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '45 - 49' As AgeGroup,
+  Age_45_49 as TotalPopulation from
+ Population_Summary
+
+where Age_45_49 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '50 - 54' As AgeGroup,
+  Age_50_54 as TotalPopulation from
+ Population_Summary
+
+where Age_50_54 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '55 - 59' As AgeGroup,
+  Age_55_59 as TotalPopulation from
+ Population_Summary
+
+where
+ Age_55_59 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '60 - 64' As AgeGroup,
+  Age_60_64 as TotalPopulation from
+ Population_Summary
+
+where 
+Age_60_64 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '65 - 69' As AgeGroup,
+  Age_65_69 as TotalPopulation from
+ Population_Summary
+
+where
+ Age_65_69 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '70 - 74' As AgeGroup,
+  Age_70_74 as TotalPopulation from
+ Population_Summary
+
+where
+ Age_70_74 > 0
+
+
+union 
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '75 - 79' As AgeGroup,
+  Age_75_79 as TotalPopulation from
+ Population_Summary
+
+where
+ Age_75_79 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '80 - 84' As AgeGroup,
+  Age_80_84 as TotalPopulation from
+ Population_Summary
+
+where 
+Age_80_84 > 0
+
+
+union
+
+
+select 
+  CancerRegistryID,
+  Year,
+  Sex,
+  '85+' As AgeGroup,
+  Age_85Plus as TotalPopulation from
+ Population_Summary
+where 
+Age_85Plus > 0
+
+;

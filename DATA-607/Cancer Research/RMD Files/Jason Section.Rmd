@@ -1,0 +1,165 @@
+---
+title: "IARC stuff to share"
+author: "Jason Givens-Doyle"
+date: "December 8, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+For the project I focused on two things.  First was comparing cancer rates between two countries.  Because of the way US cancer data is collected, I used Bulgaria and the Netherlands.  Second, I used the sunburstR package to look at the percentage of cancer diagnoses by type for both the United States and Bulgaria.  The first sunburst for each is for general organs (Lung, Bone, etc.) or specific cancers without subtypes.  The second sunburst breaks down the cancers with subtypes into those subtypes.  
+
+
+```{r}
+library(ggplot2)
+library(sunburstR)
+library(RMySQL)
+library(ggrepel)
+library(plotly)
+```
+
+I read in the Europe_Cases.csv from the IARC data to do all of this.  I left the Cancer column as numbers to use the data dictionary for sunbursting.  
+
+
+```{r}
+Europe<-read.csv("Europe_Cases.csv")
+Europe2011<-subset(Europe,Europe$YEAR==2011)
+Bulgaria<-subset(Europe2011,Europe2011$REGISTRY==10000000)
+```
+
+2011 Bulgaria population taken from [http://www.nsi.bg/bg/content/3078/население-по-области-общини-населени-места-и-възраст-към-01022011-г](http://www.nsi.bg/bg/content/3078/население-по-области-общини-населени-места-и-възраст-към-01022011-г).  Please note that due to the way that some computers handle Cyrillic characters, the user may need to copy the text here and paste it to access the URL.
+
+I am using the .csv you created to get the numbers.
+
+```{r}
+Bulgaria2011<-subset(Bulgaria,Bulgaria$YEAR==2011)
+CensusData<-read.csv("CombinedData.csv")
+BulgPopDemo<-CensusData$Bulgaria
+```
+
+```{r}
+Bulgaria2011ABSM<-Bulgaria2011[1,]
+Bulgaria2011ABSF<-Bulgaria2011[171,]
+Bulgaria2011AllButSkin<-Bulgaria2011ABSM+Bulgaria2011ABSM
+#Bulgaria2011AllButSkin
+Bulgaria2011ABSDemo<-Bulgaria2011AllButSkin[,c(6:23)]
+#BulgPopDemo<-BulgPop[,c(3:20)]
+#ncol(Bulgaria2011ABSDemo)
+#ncol(BulgPopDemo)
+BulgariaGeneralRate<-Bulgaria2011ABSDemo/BulgPopDemo
+#BulgariaGeneralRate
+```
+
+```{r}
+Neth<-subset(Europe2011,Europe2011$REGISTRY==52800000)
+Neth2011<-subset(Neth,Neth$YEAR==2011)
+```
+
+2011 Dutch Population taken from https://www.cbs.nl/en-gb/publication/2014/47/dutch-census-2011, page 24.
+
+This gives the difference between the Netherlands' and Bulgaria's Cancer Rates
+
+```{r}
+NethFullPop<-CensusData$Netherlands
+Neth2011ABSM<-Neth2011[1,]
+Neth2011ABSM<-Neth2011ABSM[,-c(1:5)]
+Neth2011ABSF<-Neth2011[171,]
+Neth2011ABSF<-Neth2011ABSF[,-c(1:5)]
+Neth2011AllButSkinTotal<-Neth2011ABSF+Neth2011ABSM
+Neth2011AllButSkinTotal<-Neth2011AllButSkinTotal[,-19]
+NethABST<-as.data.frame(t(Neth2011AllButSkinTotal))
+NethRates<-as.data.frame(NethABST/NethFullPop)
+BulgRates<-as.data.frame(t(BulgariaGeneralRate))
+NethMinusBulg<-as.data.frame(NethRates-BulgRates)
+names(NethMinusBulg)<-c("Difference in Cancer Rates")
+NethMinusBulgby100000<-NethMinusBulg
+NethMinusBulgby100000$`Difference in Cancer Rates`<-NethMinusBulgby100000$`Difference in Cancer Rates`*100000
+names(NethMinusBulgby100000)<-c("Difference In Cancer Rates per 100,000")
+NethMinusBulgby100000
+```
+
+Graphically:
+
+```{r}
+BulgWithAges<-as.data.frame(cbind(seq(0,85,by=5),t(BulgariaGeneralRate)))
+names(BulgWithAges)<-c("Age","CancerRate")
+BulgWithAgesby100000<-BulgWithAges
+BulgWithAgesby100000$CancerRate<-BulgWithAgesby100000$CancerRate*100000
+ggplotly(ggplot(BulgWithAgesby100000,aes(x=Age,y=CancerRate))+geom_point()+ggtitle("Bulgarian Cancer Rate per 100,000 by Five Year Age Group, 2011"))
+NethWithAges<-as.data.frame(cbind(seq(0,85,by=5),NethRates))
+NethWithAgesper100000<-NethWithAges
+names(NethWithAgesper100000)<-c("Age","CancerRate")
+NethWithAgesper100000$CancerRate<-NethWithAgesper100000$CancerRate*1000000
+ggplotly(ggplot(NethWithAgesper100000,aes(x=Age,y=CancerRate))+geom_point()+ggtitle("Netherlands Cancer Rate per 100,000 by Five Year Age Group, 2011"))
+NethMinusBulgby100000<-as.data.frame(cbind(seq(0,85,by=5),NethMinusBulgby100000))
+names(NethMinusBulgby100000)<-names(NethWithAgesper100000)<-c("Age","Cancer_Rate_Difference")
+ggplotly(ggplot(NethMinusBulgby100000,aes(x=Age,y=Cancer_Rate_Difference))+geom_point()+ggtitle("Netherlands/Bulgaria Cancer Rate Difference per 100,000 by Five Year Age Group, 2011"))
+```
+
+This has the password to my localhost sql server, please delete when done.
+
+```{r, include=FALSE}
+SEER = dbConnect(MySQL(), user="root", password="2obscureReferences", host="localhost", dbname="cancer") 
+cancercasessummary<-dbGetQuery(SEER, "SELECT * FROM cancer_cases_summary")
+```
+
+```
+SEER = dbConnect(MySQL(), user="", password="", host="localhost", dbname="cancer") 
+cancercasessummary<-dbGetQuery(SEER, "SELECT * FROM cancer_cases_summary")
+```
+
+I've uploaded cancer_detailed_modified2.csv to my github. The dashes are in the All.cancers.excluding.non.melanoma.skin are necessary for the sunburst.  Given RStudios' autofill, I didn't fix the column names except at the end. 
+
+```{r}
+CDict<-read.csv("https://raw.githubusercontent.com/jgivensdoyle/607/master/cancer_detailed_modified2.csv",stringsAsFactors = FALSE)
+#Lowerit is used to remove cancer classes that have sub-classes for sunbursting
+lowerit<-function(x){
+  i<-1
+  while(i<nrow(x)){
+    if((is.na(x[i+1,3])==TRUE)&(is.na(x[i,3])==FALSE)){
+      x<-x[-i,]
+    }else{
+      i=i+1
+    }
+  }
+  return(x)
+}
+ByCancerType<-function(x){
+xSpec<-subset(x,x$CANCER!=1)
+xTotalTypes<-aggregate(xSpec$TOTAL, by=list(Cancer=xSpec$CANCER), FUN=sum)
+xTotalTypes$Cancer<-CDict$All.cancers.excluding.non.melanoma.skin
+xTotalTypes<-cbind.data.frame(xTotalTypes,CDict$X.C00.96.C44.)
+xTotalTypes$`CDict$X.C00.96.C44.`<-as.character(xTotalTypes$`CDict$X.C00.96.C44.`)
+xTotalTypes$`CDict$X.C00.96.C44.`<-gsub("^$",NA,xTotalTypes$`CDict$X.C00.96.C44.`)
+return(xTotalTypes)
+}
+```
+
+In sunbursting the US cancer data, the percentages vary slightly between looking at overall categories and specific sub-categories.  The numbers, however, remain the same.  I am unsure of why the sunburstR package does this.
+
+```{r}
+specccs<-subset(cancercasessummary,cancercasessummary$CancerCode!=1)
+#now creating all year data set
+SEERCancerSum<-aggregate(specccs$TotalCases, by=list(CancerCode=specccs$CancerCode), FUN=sum)
+SEERCancerSum$CancerCode<-CDict$All.cancers.excluding.non.melanoma.skin
+#SEERCancerSum
+#sunburst(SEERCancerSum)
+SEERCancerSum<-cbind.data.frame(SEERCancerSum,CDict$X.C00.96.C44.)
+SEERCancerSum$`CDict$X.C00.96.C44.`<-as.character(SEERCancerSum$`CDict$X.C00.96.C44.`)
+SEERCancerSum$`CDict$X.C00.96.C44.`<-gsub("^$",NA,SEERCancerSum[,3])
+toplevel<-subset(SEERCancerSum,is.na(SEERCancerSum$`CDict$X.C00.96.C44.`)==FALSE)
+toplevel2<-toplevel[,c(1:2)]
+sunburst(toplevel2,count=TRUE)
+sunburst(lowerit(SEERCancerSum),count = TRUE)
+```
+After the United States, I similarly did Bulgaria's Cancer Rates.
+
+```{r}
+BulgariaSpec<-ByCancerType(Bulgaria)
+BulgTop<-subset(BulgariaSpec,is.na(BulgariaSpec$`CDict$X.C00.96.C44.`)==FALSE)
+Bulglower<-lowerit(BulgariaSpec)
+sunburst(BulgTop)
+sunburst(Bulglower)
+```

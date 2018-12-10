@@ -1,0 +1,504 @@
+---
+title: "DATA 607 Final Project - Cancer Research Analysis"
+author: "Jason Givens-Doyle, Romerl Elizes & Soumya Ghosh"
+date: "December 2, 2018"
+output: 
+  html_document: 
+    toc: true
+    toc_float:
+      collapsed: false
+    toc_depth: 4
+    number_sections: true
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+  #  code_folding:hide
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.table.format = "html")
+```
+
+# Project Summary
+
+The Final Project for Team Cancer Researchers (Formally Team Aero Bombers) focused on analyzing Cancer Data downloaded from the Surveillance, Epidemmiology, and End Results Program (SEER) of the National Cancer Institute (NCI) of the National Institute of Health (NIH) website [SEE] and the Cancer Incidence in Five Continents (CI5) collaboration of the World Health Organization: International Agency for Research on Cancer website [CI5]. Team Cancer Researchers was composed of Jason Givens-Doyle, Romerl Elizes, and Soumya Ghosh.
+
+## Team Responsibilities
+
+Team responsibilities for the Project were:
+
+**Rom (Romerl)** - initially downloaded the SEERS data, cleaned the SEERS data and stored them into CSV files, investigated alternative database with MongoDB, performed detailed statistical analysis as required by the project, and developed comprehensive documentation on the master RMD file.
+
+**Soumya** - developed the MySQL database for the project combining the SEERS (using the CSV files Romerl recreated) and CI5 research databases, creates ETL bulk load scripts to populate the data, developed the data pull queries, performed analysis and created visualization for CI5 data set
+
+**Jason** - developed the initial idea for researching cancer data. Identified the two data sources that will be used in the project,
+
+
+## Project Goals
+
+The initial project goals based on the submitted project proposal were:
+
+- Define a prediction model to determine the likelihood of certain cancers.
+
+- Work on subsetting the data, looking a subgroups within the identified risk groups and drilling down for more specific risks and indicators.
+
+- Using the characteristics of the data, statistically determine cancer survivability by cancer type by diagnosis year.
+
+## Project Caveats and Difficulties
+
+Some of the project caveats and difficulties were highlighted here.
+
+- Obtaining the SEER data was a time consuming process. It required each of the team members to request access via NIH guidelines. While access to the data was pretty straightforward for some, it was difficult to obtain for one our teammates.
+
+- Downloading the SEER data was the easy part. The data while comprehensive was stored in text files that had to be cleaned and parsed properly in order for it to in a readable format such that R could properly clean the data. Even then, the SEER data once downloaded had over 10,050,814 rows of data!
+
+- Due to the vastness of the SEER, for the purposes of the investigation, we focused only on cancer patients who were diganosed with cancer prior to 1999. This represents 25 years worth of data and and only accounts for 2,788,863 rows of data.
+
+- Our team membership is truly an online collaboration. Jason lives in Japan, Soumya lives in Connecticut, and Rom lives in New Jersey. Team discussions, development, and collaboration was a purely online endeavor. The Thanksgiving holiday affected one of our team meeetings and made the project meet-ups challenging.
+
+
+## Room for Improvements
+
+This project certainly has some room for improvement and can be used for other future research opportunities.
+
+- The statistical analysis only focused on two data variables in the SEER data. Due to time constraints, it was not realistically feasible to explore the other variables for more detailed analysis. We extracted 22 columns worth of SEERS data, but the statistical analysis on the two variables was still exhaustive. Exploration of the other columns would be a worthy endeavor.
+
+- A more detailed analysis could be investigated for some of the individual cancer types and do a comparison between regions. However, due to time constraints and team discussion, it was best to focus on the data from a global perspective. In a future project opportunity, other students could focus on investigating a particular cancer type(s) and do comparisons between the regions in the United States.
+
+# Defining and Installing the Datasets for the Project
+
+This section will focus on downloading the data sets from the SEER and CI5 websites. It will focus
+
+Loading necessary libraries
+
+```{r message=FALSE, warning=FALSE}
+library(RODBC)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(plotly)
+library(kableExtra)
+library(data.table)
+library(knitr)
+library(psych)
+library(tidyr)
+library(scales)
+library(maps)
+library(mapdata)
+library(rCharts)
+```
+
+## Downloading Data from SEERS Data Repository
+
+The SEERS was downloaded into a directory and was separated by text files. Each text file represented Cancer type and contained over 100 fields each by a particular region and time period in the United States. The text files extracted represented the following Cancer Types: Breast, Digestive, Male Genital, Female Genital, Respiratory, Colon/Rectal, Lymphoma/Leukemia, Urinary, and Other Cancers. Each column was and values were divided by specified space positions in the text files. R data cleaning procedures were used to extract the data values from each field space position and rename them based on the provided data dictionary. All of the text files representing a specific cancer type were merged together using the R data cleaning procedures and converted into 1 CSV file. As a result, there was one CSV file for each cancer type. A link to the initial R work can be found here: http://rpubs.com/RommyGraphs/442626
+
+
+## Downloading Data from CI5 Data Repository
+
+The CI5plus database contains updated annual incidence rates for 124 selected populations from 108 cancer registries published in CI5, for the longest period available (up to 2012), for all cancers and 28 major types (see the Cancer dictionary menu option [here](http://ci5.iarc.fr/CI5plus/Pages/detailed.aspx)). The data dictinary associated with the CI5 Diagnostic Units was analyzed and combined with SEERS databse defined cancer types for comparative analyses. Cancer Registry data capturing the country, region etc. and Microscopically verified cancer incidence data by age groups for each continent were combined into separate dimension and fact tables. SQL transformations were applied to convert incidence data tidy format for further analysis and consumption in R. SQL based ETL and Bulk load scripts were created to process and load the data sets into one consolidated MySQL database.     
+
+
+## Investigating Alternative databases
+
+Before we decided to exclusively use the MySQL database for the Final Project, Rom investigated the possibility of using the Mongo database as a possible database for the Final Project. Some of the initial work can be found here:
+
+- Storing the CSV files into data frames that could easily be stored in MongoDB Collections - http://rpubs.com/RommyGraphs/444545
+
+- Defining an Initial Statistical Analysis from a Global Perspective on the SEER Data in MongoDB - http://rpubs.com/RommyGraphs/444519
+
+- Defining an Initial Statistical Analysis from a Detailed Perspective on Respirator Cancer by Region on the SEER Data in MongoDB - http://rpubs.com/RommyGraphs/444533
+
+In the end, due to time constraints and team familiarity with the MySQL database technology, we decided to use the MySQL database for the project.
+
+## Establishing MySQL Infrastructure
+
+### Importing the Modified SEERS Data from the CSV Files
+
+Below are the steps followed to perform database migration -
+
+#### Establish MySQL DB Connection:
+
+We used the RODBC package and an ODBC data source called 'MySQL_SEERS_Analysis' in order to connect to the database and retrieve tables into their respective data frames.
+
+```{r connect-MySQLDB}
+con <- odbcConnect("MySQL_SEERS_Analysis")
+```
+
+#### SEERS Cancer Patients Master (USA Only) - Placing in Data Frames and Performing Test Query
+
+The SEERS data was queried straight from the established SQL database.  A data frame was created using the following limiting criteria - patient who was diagnosed prior to 1999. A sample table display was created to verify that the data  could be shown. The data frame was further divided into data frames representing their cancer types. These data frames will be used in the Statistical Analysis portion of the project.
+
+#### B. CI5 Global Cancer Patients Data - Placing in Data Frames and data Query
+
+The CI5 data was queried straight from the established SQL database. A single SQL query was leveraged using JOINs and GROUP BY and its results were displayed in a Kable to verify that the data could be queried.
+
+```{r store-ci5-data-into-data-frames, fig.width = 10, fig.height = 6, message=FALSE, warning=FALSE}
+
+Query <- "SELECT 
+reg.Continent, 
+reg.Country,
+diag.DiagUnitLvl1Desc,
+diag.DiagUnitLvl0Desc,
+diag.SEERDiagnosticUnit,
+diag.SEERDiagnosticUnitDesc,
+can.Year,
+can.AgeGroup,
+can.Sex,
+sum(can.TotalCases) as CancerCases
+FROM
+ SEERS_Analysis.cancer_cases_details as can
+INNER JOIN
+ SEERS_Analysis.cancer_registry_master as reg
+ ON can.CancerRegistryID = reg.CancerRegistryID
+INNER JOIN
+ diagnostic_units_master as diag
+ ON can.CancerCode = diag.CancerCode
+GROUP BY
+ reg.Continent, 
+ reg.Country,
+ diag.DiagUnitLvl1Desc,
+ diag.DiagUnitLvl0Desc,
+ diag.SEERDiagnosticUnit,
+ diag.SEERDiagnosticUnitDesc,
+ can.Year,
+ can.AgeGroup,
+ can.Sex"
+
+CI5MasterDF <- sqlQuery(con,Query)
+
+### Derive Year attributes 
+CI5MasterDF$BeginAge <- as.numeric(str_extract(CI5MasterDF$AgeGroup,"\\d{1,2} "))
+
+tmpCI5MasterDF <- head(CI5MasterDF)
+tmpCI5MasterDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+#### C. CI5 Global Population Data - Placing in Data Frames and data Query
+
+The CI5 population data was queried straight from the established SQL database. A single SQL query was leveraged using JOINs and GROUP BY and its results were displayed in a Kable to verify that the data could be queried.
+
+```{r store-ci5-pop-into-data-frames, fig.width = 10, fig.height = 6, message=FALSE, warning=FALSE}
+
+Query_pop <- "SELECT 
+reg.Continent, 
+reg.Country,
+pop.Year,
+pop.AgeGroup,
+pop.Sex,
+sum(pop.TotalPopulation) as Population
+FROM
+ SEERS_Analysis.population_details as pop
+INNER JOIN
+ SEERS_Analysis.cancer_registry_master as reg
+ ON pop.CancerRegistryID = reg.CancerRegistryID
+GROUP BY
+ reg.Continent, 
+ reg.Country,
+ pop.Year,
+ pop.AgeGroup,
+ pop.Sex"
+
+CI5PopMasterDF <- sqlQuery(con,Query_pop)
+
+### Derive Year attributes 
+CI5PopMasterDF$BeginAge <- as.numeric(str_extract(CI5PopMasterDF$AgeGroup,"\\d{1,2}[ |+]{1}"))
+
+tmpCI5PopMasterDF <- head(CI5PopMasterDF)
+tmpCI5PopMasterDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+### Global View of Cancer Incidence (1995-2012)
+
+We chose the period between 1995-2012 for the analysis since CI5 data set contains data for most of the countries reported within this time frame. The majority of the cancer incidence data captured in the CI5 data set appears to be in North America region. Africa has very little reported data.
+
+```{r GlobalSummary, fig.width = 10, fig.height = 4, message=FALSE, warning=FALSE }
+WorldData <- map_data('world')
+WorldData %>% filter(region != "Antarctica") -> WorldData
+WorldData <- fortify(WorldData)
+CI5SummaryDF <- CI5MasterDF %>% filter (Year>=1995) %>% group_by(Country) %>% summarise(CancerCases = sum(CancerCases)/1000000)
+ggplot() + 
+  geom_map(data=WorldData, map=WorldData,
+           aes(x=long, y=lat, group=group, map_id=region),
+           fill="white", colour="#7f7f7f", size=0.5) + 
+  geom_map(data=CI5SummaryDF, map=WorldData,
+           aes(fill=CancerCases, map_id=Country),
+           colour="#7f7f7f", size=0.5) + 
+  coord_map("rectangular", lat0=0, xlim=c(-180,180), ylim=c(-60, 90)) + 
+  scale_fill_continuous(low="thistle2", high="darkred", guide="colorbar") + 
+  scale_y_continuous(breaks=c()) + 
+  scale_x_continuous(breaks=c()) + 
+  labs(fill="Cancer Cases (in Millions)", title="Global View of the Cancer Cases (1995-2012)", x="", y="") + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  theme_bw() + 
+  theme(panel.border = element_blank())
+```
+
+### Calculation of Crude Rate
+
+Data on incidence are often presented as rates. For a specific tumour and population, a crude rate is calculated by dividing the number of new cancers observed during a given time period by the corresponding number of people in the population at risk. For cancer, the result is usually expressed as an annual rate per 100,000 persons at risk.
+
+```{r}
+Query_CR <- "SELECT 
+reg.Continent, 
+reg.Country,
+pop.Year,
+pop.AgeGroup,
+pop.Sex,
+diag.DiagUnitLvl0Desc,
+sum(pop.TotalPopulation) as TotalPopulation,
+sum(can.TotalCases) as TotalCases
+FROM
+ SEERS_Analysis.Cancer_Cases_Details as can
+ INNER JOIN
+ SEERS_Analysis.population_details as pop
+ ON (pop.CancerRegistryID = can.CancerRegistryID AND
+	pop.Year = can.Year AND
+    pop.Sex = can.Sex AND
+    pop.AgeGroup = can.AgeGroup)
+ INNER JOIN
+ SEERS_Analysis.cancer_registry_master as reg
+ ON pop.CancerRegistryID = reg.CancerRegistryID
+ INNER JOIN
+ diagnostic_units_master as diag
+ ON can.CancerCode = diag.CancerCode
+ 
+GROUP BY
+ reg.Continent, 
+ reg.Country,
+ pop.Year,
+ pop.AgeGroup,
+ pop.Sex,
+ diag.DiagUnitLvl0Desc"
+
+CI5CRMasterDF <- sqlQuery(con,Query_CR)
+
+### Derive Year attributes 
+CI5CRMasterDF$BeginAge <- as.numeric(str_extract(CI5CRMasterDF$AgeGroup,"\\d{1,2} "))
+
+tmpCI5CRMasterDF <- head(CI5CRMasterDF)
+tmpCI5CRMasterDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+
+### Cancer Global Incidence Trend between 1995 - 2012
+
+```{r}
+TimeSummary_DF <- CI5MasterDF  %>% filter(Year >= 1995) %>% group_by(Year, Continent) %>% summarise(CancerCases=sum(CancerCases)/1000000)
+
+p <- ggplot(data=TimeSummary_DF, aes(x=Year,y=CancerCases, color=Continent)) +
+  geom_line(aes(group = Continent))+
+  geom_point()+
+  theme(axis.text.x=element_text(angle = 60, vjust = 0.5)) +
+  scale_fill_brewer(palette="Paired") + 
+  ggtitle("Trend of Cancer Incidence By Continent") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom") +
+  labs(y = "Cancer Cases (in Millions)")
+
+ggplotly(p)
+```
+
+From the trend chart above Americas, Asia and Europe show a growing trend in cancer cases whereas Oceania and Africa show flat trend. But this could be due to limited reported data from those regions.
+
+### Pyramid Function 
+
+```{r}
+UKPopSummary <- CI5PopMasterDF  %>% filter(Country =="UK") %>% select(c("Year","AgeGroup","Sex","Population","BeginAge")) %>% group_by(Sex,AgeGroup,BeginAge) %>% summarise(Population=sum(Population))
+UKPopSummary$Population <- ifelse(UKPopSummary$Sex == "M", -1*UKPopSummary$Population, UKPopSummary$Population)
+## DimpleJS pyramid
+
+dPyramid <- function(dat, colors=NULL) {
+  #dat <- getAgeTable(country, year)
+  year <- sort(unique(dat$Year))
+ # dat$Male <- -1 * dat$Male
+  
+#  keep <- c("Year", "Age", "Male", "Female", "ord")
+  
+#  dat.sub <- dat[,keep]
+  
+ # dat.melt <- melt(dat.sub, 
+  #                 value.name='Population', 
+  #                 variable.name = 'Gender', 
+  #                 id.vars=c('Age', 'ord', 'Year') )
+  
+  #dat.melt$gencode <- ifelse(dat.melt$Gender == 'Male', 1, 2)
+  dat$gencode <- ifelse(dat$Sex == 'M', 1, 2)
+  
+  d1 <- dPlot(
+    x = "Population", 
+    y = "AgeGroup", 
+    groups = "Sex", 
+    data = dat, 
+    type = 'bar')
+  
+  
+  d1$yAxis(type = "addCategoryAxis", orderRule = "BeginAge")
+  d1$xAxis(type = "addMeasureAxis")
+  d1$legend( x = 60, y = 10, width = 700, height = 20, horizontalAlign = "right")
+  
+  if (!is.null(colors)){
+    d1$colorAxis(
+      type = "addColorAxis", 
+      colorSeries = "gencode", 
+      palette = colors
+    )
+  }
+  if (length(year) > 1) {
+    d1$set(storyboard = "year")
+    max_x <- round_any(max(dat.melt$Population), 10000, f = ceiling)
+    min_x <- round_any(min(dat.melt$Population), 10000, f = floor)
+    d1$xAxis(overrideMax = max_x, overrideMin = min_x)
+  }
+  
+  if (max(dat$Population >= 1000000)) {
+    d1$setTemplate( afterScript = 
+                      "
+                    <script>
+                    x._getFormat = function () {
+                    return function(d) {
+                    return d3.format(',.1f')(Math.abs(d) / 1000000) + 'm';
+                    };
+                    };
+                    myChart.draw()
+                    </script>
+                    ")
+  } else {
+    d1$setTemplate( afterScript = 
+                      "
+                    <script>
+                    x._getFormat = function () {
+                    return function(d) {
+                    return d3.format(',.0f')(Math.abs(d) / 1000) + 'k';
+                    };
+                    };
+                    myChart.draw()
+                    </script>
+                    ")
+  }
+  
+  d1
+}
+
+n <- dPyramid(UKPopSummary, colors = c('blue', 'silver'))
+n
+```
+
+#### Population Pyramid - UK 
+
+We picked UK as a sample region to understand the age distribution of population at Risk with a break down by gender through a population pyramid.
+
+```{r ci5-popoulation-pyramid, message=FALSE, warning=FALSE}
+UKPopSummary_DF <- CI5PopMasterDF  %>% filter(Country =="UK") %>% group_by(Sex,AgeGroup,BeginAge) %>% 
+summarise(Population=sum(Population))
+UKPopSummary_DF$Population <- ifelse(UKPopSummary_DF$Sex == "M", -1*UKPopSummary_DF$Population, UKPopSummary_DF$Population)
+
+p0 <- ggplot(UKPopSummary_DF, aes(x = reorder(AgeGroup,BeginAge), y = Population, fill = Sex)) + 
+  geom_bar(data = subset(UKPopSummary_DF, Sex == "F"), stat = "identity") + 
+  geom_bar(data = subset(UKPopSummary_DF, Sex == "M"), stat = "identity") + 
+  scale_y_continuous(breaks = seq(-50000000, 50000000, 10000000), 
+                     labels = paste0(as.character(c(seq(50, 0, -10), seq(10, 50, 10))), "m")) + 
+#    scale_y_continuous(breaks = seq(-15000000, 15000000, 5000000), 
+#                     labels = paste0(as.character(c(seq(15, 0, -5), seq(5, 15, 5))), "m")) + 
+  coord_flip() + 
+  scale_fill_brewer(palette = "Set1") + 
+  ggtitle("Population Pyramid - UK") +
+  labs(y = "Population (in Millions)",x= "Age Group") +
+  theme_bw()
+
+ggplotly(p0)
+```
+
+
+#### Cancer Incidence Pyramid - UK
+
+We picked UK as a sample region to understand the age distribution of cancer patients with a break down by gender through an incidence pyramid.
+
+```{r ci5-cancer-pyramid, message=FALSE, warning=FALSE}
+UKSummary_DF <- CI5MasterDF  %>% filter(Country =="UK") %>% group_by(Sex,AgeGroup,BeginAge) %>% 
+summarise(CancerCases=sum(CancerCases))
+UKSummary_DF$CancerCases <- ifelse(UKSummary_DF$Sex == "M", -1*UKSummary_DF$CancerCases, UKSummary_DF$CancerCases)
+
+p1 <- ggplot(UKSummary_DF, aes(x = reorder(AgeGroup,BeginAge), y = CancerCases, fill = Sex)) + 
+  geom_bar(data = subset(UKSummary_DF, Sex == "F"), stat = "identity") + 
+  geom_bar(data = subset(UKSummary_DF, Sex == "M"), stat = "identity") + 
+  scale_y_continuous(breaks = seq(-15000000, 15000000, 3000000), 
+                     labels = paste0(as.character(c(seq(15, 0, -3), seq(3, 15, 3))), "m")) + 
+  coord_flip() + 
+  scale_fill_brewer(palette = "Set1") + 
+  ggtitle("Incidence Pyramid for Cancer Patients - UK") +
+  labs(y = "Cancer Cases (in Millions)",x= "Age Group") +
+  theme_bw()
+
+ggplotly(p1)
+```
+
+For male 70-74 age group has most no. of reported cancer incidence whereas for female, age group 75-79 has most no. of cancer cases. Based on the chart above we excluded age group below 35 for further analysis. 
+
+#### Cancer Trend - UK By Age Group (greater than 35) and Gender
+
+Here we did a trend analysis of cancer patients in UK betweek 1995 to 2012 by age group beyond 35.
+
+```{r ci5-uk-incidence-trend, message=FALSE, warning=FALSE, fig.width = 10, fig.height = 8}
+UKTimeSummary_DF <- CI5MasterDF  %>% filter(Country =="UK", Year>=1995, BeginAge>=35) %>% group_by(AgeGroup,BeginAge,Sex,Year) %>% summarise(CancerCases=sum(CancerCases)/1000000)
+
+
+ggplot(UKTimeSummary_DF, aes(x = Year, y = CancerCases, color=AgeGroup)) + 
+  geom_line(aes(group = reorder(AgeGroup,BeginAge)))+
+   geom_point()+ 
+  theme(axis.text.x=element_text(angle = 60, vjust = 0.5)) +
+  scale_fill_brewer(palette="Paired") + 
+  ggtitle("Trend of Cancer Incidence By Age Group - UK") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom") +
+  facet_wrap(~Sex) +
+  labs(y = "Cancer Cases (in Millions)")
+
+
+```
+
+Based on the Trend chart above both in Male and Female category there is a steady increase in cancer patients in the age group 65-69 in UK.
+
+#### Top 10 most frequent Cancer Diagnosis Types - UK 
+
+Then we looked at Top 10 most frequently occurring Cancer diagnosis types in UK between all age groups.
+
+##### Female:
+
+```{r ci5-uk-f-diagnosis-trend, message=FALSE, warning=FALSE, fig.width = 8, fig.height = 6}
+UKDiagSummary_DF <- CI5MasterDF  %>% filter(Country =="UK", Year>=1995, Sex == "F") %>% group_by(DiagUnitLvl0Desc) %>% summarise(CancerCases=sum(CancerCases)/1000000) %>% mutate(rank = rank(-CancerCases))  %>% filter(rank <= 10) %>% arrange(rank)
+
+p2 <- ggplot(UKDiagSummary_DF, aes(x = reorder(DiagUnitLvl0Desc,-CancerCases), y = CancerCases)) + 
+  geom_bar(stat = "identity", position = "dodge", fill = "orange") + 
+  geom_text(aes(label=CancerCases), vjust=-0.8, color="black", position = position_dodge(0.9), size=3.5) +
+  theme(axis.text.x=element_text(angle = 60, vjust = 0.5)) +
+  scale_fill_brewer(palette="Paired") + 
+  ggtitle("Top 10 Cancer Diagnosis Types - UK") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom") +
+   labs(x = "Cancer Diagnosis Type",y = "Cancer Cases (in Millions)") 
+
+ggplotly(p2)
+```
+
+
+##### Male:
+
+```{r ci5-uk-m-diagnosis-trend, message=FALSE, warning=FALSE, fig.width = 8, fig.height = 6}
+UKDiagSummary_DF <- CI5MasterDF  %>% filter(Country =="UK", Year>=1995, Sex == "M") %>% group_by(DiagUnitLvl0Desc) %>% summarise(CancerCases=sum(CancerCases)/1000000) %>% mutate(rank = rank(-CancerCases))  %>% filter(rank <= 10) %>% arrange(rank)
+
+p3 <- ggplot(UKDiagSummary_DF, aes(x = reorder(DiagUnitLvl0Desc,-CancerCases), y = CancerCases)) + 
+  geom_bar(stat = "identity", position = "dodge", fill = "blue") + 
+  geom_text(aes(label=CancerCases), vjust=-0.8, color="black", position = position_dodge(0.9), size=3.5) +
+  theme(axis.text.x=element_text(angle = 60, vjust = 0.5)) +
+  scale_fill_brewer(palette="Paired") + 
+  ggtitle("Top 10 Cancer Diagnosis Types - UK") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom") +
+   labs(x = "Cancer Diagnosis Type",y = "Cancer Cases (in Millions)") 
+
+ggplotly(p3)
+```
+
+For **female, Lip, Breast and Lung** cancer has most reported cases whereas for **male, Lip, Lung and Prostate** are the top 3 diagnostic types of cancer for all age groups. From both the Bar chart above, it is evident that Lip/Oral cancer is the most dominant type in UK. The reasons for developing Oral/mouth cancer could be due to smoking habits or using other forms of tobaco, dringking alcohol etc. 
+

@@ -1,0 +1,100 @@
+---
+title: "Basic Sunburst"
+author: "Jason Givens-Doyle"
+date: "December 3, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Libraries:
+
+```{r}
+library("sunburstR")
+library("stringr")
+library("tidyr")
+```
+
+Reading in the clean set first, will try getting the messy set next
+
+```{r}
+f1Sun<-read.csv("For Sunburst - Clean Fake Data.csv")  #this data is made up in my head, just wanted to get something out there
+head(f1Sun)
+```
+
+```{r}
+sunburst(f1Sun)
+```
+
+
+We encounter the small problem that cancer incidence, even in my fake data, is <1% of the population.  
+
+```{r}
+f1Sun2<-subset(f1Sun,str_detect(f1Sun$country,"Cancer")==TRUE)
+f1Sun2$country<-str_replace(f1Sun2$country,"end","End")
+sunburst(f1Sun2)
+```
+
+Using the "-end" is recomended for differentiation to avoid overlapping strings.  It is not needed here, but we can use it to make things look nice before getting rid of it.
+
+```{r}
+f1Sun3<-f1Sun2
+f1Sun3$country<-str_replace(f1Sun3$country,"Cancer-End","Cancer-Other")
+f1Sun3$country<-str_replace(f1Sun3$country,"-End","")
+f1Sun3$country<-str_replace(f1Sun3$country,"-Cancer","")
+sunburst(f1Sun3)
+```
+
+Now to do this with more normal data.  The idea is to get it mostly tidy, concatinate columns and then sunburst.
+
+```{r}
+f2Sun<-read.csv("For Sunburst - Fake Data.csv")
+head(f2Sun)
+```
+
+I set this up with one column for incidence/mortality per 100,000 and another with the total numbers.  We won't have the total numbers, but that is trivial to fix if we have the population.  
+
+```{r}
+##First just ditching the columns we don't need
+#
+f2SunSmall<-data.frame(f2Sun$country,f2Sun$cancer.type,f2Sun$Total.Number.incidence,f2Sun$Total.number.mortality)
+names(f2SunSmall)<-c("Country-Cancer","Type","Incidence","Mortality")
+#
+#Next pasting two of the columns together.  I don't have -end on the strings here, as above, it's not needed
+#
+f2SunSmall$`Country-Cancer`<-paste(f2SunSmall$`Country-Cancer`,f2SunSmall$Type,sep="-")
+f2SunSmall<-data.frame(f2SunSmall$`Country-Cancer`,f2SunSmall$Incidence,f2SunSmall$Mortality)
+names(f2SunSmall)<-c("Country-Cancer","Incidence","Mortality")
+#
+#Gathering the incidence and mortality numbers into a single column, then pasting the incidence/mortality indicator into the principle column
+#
+f2Sun2<-gather(f2SunSmall,`Incidence`,`Mortality`,key = "Diag",value="Patients")
+f2Sun2$`Country-Cancer`<-paste(f2Sun2$`Country-Cancer`,f2Sun2$Diag,sep="-")
+f2Sun2$Diag<-NULL
+#deleting the word "Incidence", as we need to have a heirarchy
+f2Sun2$`Country-Cancer`<-gsub("-Incidence","",f2Sun2$`Country-Cancer`)
+```
+
+##Discussion point
+
+Here we need to make a decision on how to indicate mortality.  We can either show incidence then incidence for specific cancers and then mortality, or incidence then generally mortality then specific mortality.  I chose the first, but we could do the second.
+
+
+```{r}
+#need any - any - mortality, but not any - "All" - mortality, so subsetted that away
+#
+f2Sun3<-subset(f2Sun2,str_detect(f2Sun2$`Country-Cancer`,"-All-")==FALSE)
+#
+#Removing the other Alls from the strings
+#
+f2Sun3$`Country-Cancer`<-gsub("-All","",f2Sun3$`Country-Cancer`)
+head(f2Sun3)
+```
+
+```{r}
+#and now the graph
+sunburst(f2Sun3,percent = TRUE)
+sunburst(f2Sun3,percent = FALSE, count = TRUE)
+```
