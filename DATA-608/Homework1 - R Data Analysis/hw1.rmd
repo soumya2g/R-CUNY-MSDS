@@ -1,0 +1,194 @@
+---
+title: "DATA 608 - Home Work1"
+author: "Soumya Ghosh"
+date: "August 29, 2019"
+output: 
+  html_document: 
+    toc: true
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+  #  code_folding:hide
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### R Libraries:
+
+Load necessary libraries -
+
+```{r message=FALSE, warning=FALSE}
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+```
+
+**Principles of Data Visualization and Introduction to ggplot2**
+
+I have provided you with data about the 5,000 fastest growing companies in the US, as compiled by Inc. magazine. lets read this in:
+
+```{r}
+
+inc <- read.csv("https://raw.githubusercontent.com/charleyferrari/CUNY_DATA_608/master/module1/Data/inc5000_data.csv", header= TRUE)
+
+```
+
+And lets preview this data:
+
+```{r}
+
+#head(inc)
+head(inc) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+```{r}
+# Apply Complete.cases() function to exclude records with null values in any of the columns
+
+inc <- inc[complete.cases(inc),]
+
+summary(inc)
+
+```
+
+Think a bit on what these summaries mean. Use the space below to add some more relevant non-visual exploratory information you think helps you understand this data:
+
+### High Level understanding from the statistical summary
+
+ A. Maximum no. of growing companies are located in state of CA in the West Coast most probably due to high concentration of start ups and tech firms 
+
+ B. New York city in the East Coast has highest city level concentration of growing companies most likely due to being the major hub for banking and finanlcial industry 
+
+ C. IT Services industry has highest no. of fast growing companies
+
+ D. The Employees count in the data set ranges from 1 to 67K and revenue from \$2M to \$10B+. So the data set includes growing companies of all sizes including start ups to much bigger corporate houses
+
+
+
+```{r}
+
+# Insert your code here, create more chunks as necessary
+
+# Ranking of States based on Mean/Avg. Company Growth Rate
+topGrowthStates <- inc %>% group_by(State) %>% summarise(Growth_Rate.mean = mean(Growth_Rate)) %>% mutate(rank = rank(-Growth_Rate.mean)) %>% arrange(rank)
+
+
+topGrowthStates %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+From above ranking of states for mean company growth rate, we can see even though CA has maximum no. of growing companies, but CA ranks 9th interms of avg. growth rate. WY has the maximum avg. growth rate, but has only 2 companies included in the data set.
+
+```{r}
+# Industry Revenue Share
+industryRev <- inc %>% group_by(Industry) %>% summarise(TotalRevenue = sum(Revenue)) %>% mutate(share = TotalRevenue/sum(TotalRevenue)) %>% mutate(rank = rank(-share)) %>% arrange(rank)
+
+
+industryRev %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+From the above table, we can see that Business Products & Services industry has the highest share of revenue of fastest growing companies followed by IT Services and Health sector.
+
+```{r}
+# Industry Employment Share
+industryEmployment <- inc %>% group_by(Industry) %>% summarise(TotalEmployees = sum(Employees)) %>% mutate(share = TotalEmployees/sum(TotalEmployees)) %>% mutate(rank = rank(-share)) %>% arrange(rank)
+
+
+industryEmployment %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+From the above employees share table by industry, we can infer -
+
+ - Human Resources has the highest share (19%) of the Employees. This is probably due to large number of fast growing recruitement and leadership development companies
+ - Business Products & Services, IT Services and Health sector is consistent in terms of generating higher revenue share and generating maximum employment opportunities
+
+## Question 1
+
+Create a graph that shows the distribution of companies in the dataset by State (ie how many are in each state). There are a lot of States, so consider which axis you should use. This visualization is ultimately going to be consumed on a 'portrait' oriented screen (ie taller than wide), which should further guide your layout choices.
+
+```{r fig.width=10,fig.height=11}
+
+# Answer Question 1 here
+topStates <- inc %>% group_by(State) %>% summarise(compCount = n()) %>% mutate(rank = rank(-compCount)) %>% arrange(rank)
+
+ggplot(topStates, aes(x = reorder(State,compCount), y = compCount)) +
+  geom_bar(stat = "identity", position = "dodge", fill = "orange") +
+  geom_text(aes(label=compCount), hjust=-0.5, color="black", position = position_dodge(0.9), size=3.5) +
+  scale_fill_brewer(palette="Paired") +
+  theme(axis.text.x=element_text(angle = 0, vjust = 0.5)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  ggtitle("Distribution of Fastest Growing Companies By State") +
+  labs(x = "State", y = "No. of Companies") +
+  coord_flip()
+
+```
+
+## Quesiton 2
+
+Lets dig in on the state with the 3rd most companies in the data set. Imagine you work for the state and are interested in how many people are employed by companies in different industries. Create a plot that shows the average and/or median employment by industry for companies in this state (only use cases with full data, use R's `complete.cases()` function.) In addition to this, your graph should show how variable the ranges are, and you should deal with outliers.
+
+```{r fig.width=10,fig.height=11}
+
+# Answer Question 2 here
+top3rdState <- inc %>% group_by(State) %>% summarise(compCount = n()) %>% mutate(rank = rank(-compCount)) %>% filter(rank == 3)
+
+print(paste0("Top 3rd state in no. of companies: ",top3rdState$State, " with ", top3rdState$compCount," companies."))
+
+
+# Filter data for 3rd state in the rank for highest no. of companies
+incTop3rdState <- inc %>% filter(State == toString(top3rdState$State)) %>% filter(Employees < 5000)
+
+ggplot(incTop3rdState, aes(x = factor(Industry), y = Employees)) + 
+  geom_boxplot(aes(colour = Industry), width = 0.7)+
+  stat_boxplot(geom ='errorbar') +
+  ggtitle("Distribution of Companies By Employee Count in NY") +
+  ylab("No. of Employees") +
+  xlab("Industry") +
+  theme(legend.position="bottom") +
+  coord_flip()
+
+```
+
+In order to deal with outliers, I have removed records from New York's data set with employees > 5000.
+
+## Question 3
+
+Now imagine you work for an investor and want to see which industries generate the most revenue per employee. Create a chart that makes this information clear. Once again, the distribution per industry should be shown.
+
+```{r fig.width=11,fig.height=11}
+# Answer Question 3 here
+
+# Derive Revenue Per Employee By individual company
+revenueEmplRatio <- inc %>% mutate(revEmplRatio = round((Revenue/Employees)/1000000,0))
+
+# Calculate mean of the ratio by industry
+revenueEmplRatioMean <- revenueEmplRatio %>% group_by(Industry) %>% summarise(ratio.mean = round(mean(revEmplRatio),3))
+
+ggplot(revenueEmplRatioMean, aes(x = reorder(Industry,ratio.mean), y = ratio.mean)) +
+  geom_bar(stat = "identity", position = "dodge", fill = "blue") +
+  geom_text(aes(label=paste("$",ratio.mean,"M")), hjust=-0.1, color="black", position = position_dodge(0.9), size=3.5) +
+  scale_fill_brewer(palette="Paired") +
+  theme(axis.text.x=element_text(angle = 0, vjust = 0.1)) +
+  theme(plot.title = element_text(hjust = 0.1)) +
+  ggtitle("National Ranking of Revenue Per Employee Ratio By Industry") +
+  labs(x = "Industry", y = "Mean Revenue Per Employee Ratio (in Millions)") +
+  coord_flip()
+
+```
+
+From the above plot, it can be inferred that Energy industry has by far the highest mean Revenue Per Employee numbers nationally. But from the below Histogram distribution plot including RED dotted line for the mean ratio, referring to the facet for 'Energy' industry, it can be observed that there are quite a few outliers.
+
+```{r fig.width=11,fig.height=30}
+
+# Distribution of the Ratio by Industry
+ggplot(revenueEmplRatio, aes(x=revEmplRatio)) + geom_histogram(binwidth=.5, colour="black", fill="white") + 
+   # facet_grid(Industry ~.,scales = "free") +
+    facet_wrap(Industry ~., scales = "free", ncol = 3) +
+    geom_vline(data=revenueEmplRatioMean, aes(xintercept=ratio.mean),
+               linetype="dashed", size=1, colour="red")+
+    ggtitle("Distribution of Revenue Per Employee Ratio By Industry") +
+    xlab("Revenue Per Employee Ratio (in Millions)") 
+```
+
