@@ -1,0 +1,176 @@
+---
+title: "DATA 605 - Week 11 Discussion Post"
+author: "Soumya Ghosh"
+date: "November 10, 2019"
+output:
+  pdf_document: default
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r cache=FALSE, results=FALSE, warning=FALSE, comment=FALSE, message=FALSE}
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(dplyr)
+library(gvlma)
+library(ggResidpanel)
+```
+
+## Background
+
+### Critical Question
+
+How well does the percentage of students in a school who are eligible for free or reduced-price lunch (FRPL, a common measure of poverty) explain the average critical reading SAT score of a school?
+
+### Dataset
+
+[2006 - 2012 School Demographics and Accountability Snapshot](https://data.cityofnewyork.us/Education/2006-2012-School-Demographics-and-Accountability-S/ihfw-zy9j)
+
+[2012 SAT Results](https://data.cityofnewyork.us/Education/2012-SAT-Results/f9bf-2cp4)
+
+###Findings
+
+Schools with higher poverty (as measured by FRPL) have a lower average critical reading SAT score. However, poverty only explains about 50% of the variation in critical reading score. To make a better model, we need to account for other variables - such as school budget, racial diversity, etc.
+
+### Data Preparation
+
+Read in and clean the SAT dataset:
+
+```{r}
+url1 <- "C:/CUNY/Semester3 (Fall)/DATA 605/Assignments/Week11/Data/2012_SAT_Results.csv"
+
+sat <- read.csv(url1, fill = TRUE, sep = ",") # Read in dataset
+sat <- filter(sat, sat$Num.of.SAT.Test.Takers != "s") # Filter out missing values
+# Coerce columns to character and numeric
+sat[,1:2] <- lapply(sat[,1:2], as.character)
+sat[,3:6] <- lapply(sat[,3:6], as.numeric)
+names(sat) <- c("DBN", "school", "num_takers", "reading_avg", "math_avg", "writing_avg")
+```
+
+Read in and clean the Demographics dataset, filtering for the 2011-2012 school year (to match the SAT dataset).
+
+```{r}
+
+url2 <- "C:/CUNY/Semester3 (Fall)/DATA 605/Assignments/Week11/Data/2006_-_2012_School_Demographics_and_Accountability_Snapshot.csv"
+
+demo <- read.csv(url2, fill = TRUE, sep = ",") # Read in dataset
+demo <- filter(demo, demo$schoolyear=="20112012") # Filter for the 2011-2012 school year
+# Coerce columns to character and numeric
+demo[,1:2] <- lapply(demo[,1:2], as.character)
+demo[,3:38] <- lapply(demo[,3:38], as.numeric)
+demo <- demo[, c(1, 5)] # Choose relevant columns
+names(demo)[1] <- "DBN"
+```
+
+Join the two datasets together using the DBN (district-borough number) of each school, and view the dataframe.
+
+```{r}
+sat_demo <- inner_join(sat, demo, by="DBN")
+
+```
+
+
+Below is a preview if the data set -
+
+```{r}
+head(sat_demo)
+
+```
+
+
+Here is the statistical summary of the data -
+```{r}
+
+summary(sat_demo)
+```
+
+##Data Modeling and Analysis
+
+###Distributions
+
+When we look at histograms of each variable, we see they are slightly skewed from the normal distribution, especially with FRPL. This suggests bias in the data - that poverty is not evenly distributed across NYC schools. There are more schools with poverty levels between 60-75%. If the distribution was normal, we would expect to see a peak around 50%.
+
+```{r}
+y <- sat_demo$reading_avg
+x <- sat_demo$frl_percent
+
+plot1 <- qplot(x, geom = "histogram", xlab="% Free/Reduced Price Lunch (Poverty)", binwidth=10)
+plot2 <- qplot(y, geom = "histogram", xlab="Avg. Critical Reading SAT Score", binwidth=10)
+
+grid.arrange(plot1, plot2, ncol=2, top="Distribution of School Poverty and Critical Reading SAT Score (2011-2012)")
+```
+
+
+###Linear Model
+
+I modeled the relationship between FRPL and critical reading SAT score using the lm function and summarized the results below.
+
+**Slope:** -1.5929. For every 1 percentage-point increase in the proportion of FRPL students in a school, there is a 1.6-point decrease in average critical reading SAT score.
+
+**Intercept:** 178.5304. A school that has 0% of students eligible for FRPL would be estimated to have an average critical reading SAT score of about 179 points.
+
+**Standard error:** 5.3885 (intercept) and 0.0792 (slope). These values are much smaller than the corresponding coefficients. Indicates that there is relatively little variability in the estimates of the slope and intercept.
+
+**P-value:** <2e-16. This tiny value, and three significance stars, means that there is a high likelihood that FRPL is relevant in the model, and the model more accurately predicts it.
+
+**R-squared:** 0.4966; adjusted ${ R }^{ 2 }$: 0.4954. This means that FRPL explains about 50% of the variation in critical reading SAT score. This suggests that we may need more variables than just FRPL to explain SAT score.
+
+**Degrees of freedom:** 410. There were 412 observations used to generate the model.
+
+```{r}
+a <- lm(y ~ x)
+summary(a)
+```
+
+
+### Visualize the Data
+
+The first step in this one-factor modeling process is to determine whether or not it looks as though a linear relationship exists between the predictor and the output value. Let's inspect through a scatter plot if there is any apparent linear relationship between the Preditor and Response variable - 
+
+```{r}
+qplot(x, y, ylab="School Avg. Critical Reading SAT Score", xlab="Percent of School Pop. Eligible for Free/Reduced Price Lunch (Poverty)", main="School Poverty vs. Critical Reading SAT Score (2011-2012)") +
+  geom_abline(intercept = a$coefficients[1], slope = a$coefficients[2])
+```
+
+## Residuals
+
+When we plot the residuals of this model, we see a cluster of points between 40 and 80, and slight skew in the ends of the quantile-quantile plot. This reinforces what we saw in the histogram, that there may be bias influencing the data, or that using FRPL alone may not be enough to explain the data.
+
+```{r}
+plot4 <- qplot(a$fitted.values, a$residuals, ylab="Fitted Values", xlab="Residuals")
+
+plot5 <- ggplot() + geom_qq(aes(sample = a$residuals))
+
+grid.arrange(plot4, plot5, ncol=1, nrow=2)
+```
+
+### Residial Analysis Summary
+
+Below is a summary of the Residual Analysis using the **resid_panel** function of the **ggResidpanel** package.
+```{r}
+resid_panel(a, plots='all')
+```
+
+## Conclusion
+
+Based upon above Model Diagnostics, it can be concluded that the FRPL, a common measure of poverty explains the average critical reading SAT score of a school. Also based on the output of the gvlma function and the corresponding plot, we can find that the conditions for linear regression have been met.
+
+```{r}
+gvlma(a)
+plot(gvlma(a))
+
+```

@@ -1,0 +1,240 @@
+---
+title: "DATA 605 - HW Assignment11"
+author: "Soumya Ghosh"
+date: "November 10, 2019"
+output:
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r cache=FALSE, results=FALSE, warning=FALSE, comment=FALSE, message=FALSE}
+library(ggplot2)
+library(car)
+library(gvlma)
+library(ggResidpanel)
+```
+
+## One-Factor Linear Regression
+
+1. Using the "cars" dataset in R, build a linear model for stopping distance as a function of speed and replicate the analysis of your textbook chapter 3 (visualization, quality evaluation of the model, and residual analysis.)
+
+### Objective
+
+In this exercise we will build a simple linear regression model which will fit car stopping distance as a function of speed. So here Speed of the car is the **Predictor Variable** and car stoppng distance is the **Response Variable**. We will use built in car dataset in R for this exercise.
+
+Below is a preview if the data set -
+
+```{r}
+cars_df <- cars
+head(cars_df)
+dim(cars_df)
+```
+
+
+Here is the statistical summary of the data -
+```{r}
+
+summary(cars_df)
+```
+
+
+### Visualize the Data
+
+The first step in this one-factor modeling process is to determine whether or not it looks as though a linear relationship exists between the predictor and the output value. Let's inspect through a scatter plot if there is any apparent linear relationship between the Preditor and Response variable -
+
+```{r}
+ggplot(cars_df, aes(x=speed, y=dist)) + 
+  geom_point(size=2) +
+  ggtitle("Car Stopping Distance Vs. Speed Scatter Plot") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+The plot above shows that stopping distance tends to increase with the pseed of the car. If we superimpose a straight line on the scatter plot, we can observe a roughly linear relationship between the predictor and response variable although the relationship is not perfectly linear.
+
+The next step is to develop a Regression model which will help us quantify the degree of linearity between these two variables.
+
+### Linear Model Function
+
+Regression models is used to predict a system's behavior by extrapolating from previously measured output values when the system is tested with known input parameter values. Below is the mathemtical representation of a simple linear regression model as a straight line -
+
+$y={ \beta  }_{ 0 }+{ \beta  }_{ 1 }x$,  where ${ \beta  }_{ 0 }$ is the y intercept of the line and ${ \beta  }_{ 1 }$ is the slope. 
+
+I am going to use R's lm() function to generate a linear model. For the one factor model, R computes the values of ${ \beta  }_{ 0 }$ and ${ \beta  }_{ 1 }$ using te method of least squares which finds the line that most closely fits the measured data by minimizing the distance between the line and the data points.
+
+####Model Coefficients
+
+```{r}
+cars_model <- lm(dist ~ speed, cars_df)
+
+cars_model
+```
+
+Here the y-intercept ${ \beta  }_{ 0 }$=-17.579 and slope ${ \beta  }_{ 1 }$=3.932.
+
+#### Model Visualization
+
+```{r}
+ggplot(cars_df, aes(x=speed, y=dist)) + 
+  geom_point(size=2) +
+  geom_smooth(method=lm) +
+  ggtitle("Scatter Plot + Regression Line") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+### Quality Evaluation of the Model
+
+Using the function summary() below, some additional details can be extracted to understand how well the model fits the data -
+
+####Model Coefficients Summary
+
+```{r}
+summary(cars_model)
+```
+
+
+### Model Interpretation
+
+####1. Regression Model
+
+The final regression model is :
+
+$\hat { dist } =-17.579+3.932*speed$
+
+For each additional increase in the miles per hour, the model expects an increase of 3.9 feet in stopping distance.
+
+####2. Residuals
+
+The **Residuals** are the differences between the actual measured values and the corresponding values on the fitted regression line. Each data point's residual is the distance that the individual data point is above (positive residual) or below (negative residual) the regression line.
+
+If the line is a good fit with the data, we would expect residual values that are normally distributed around a mean of zero. With Minimum and Maximum roughly the same magnitued and 1st and 3rd quartile values also roughly the same magnitude. For this model, the residual values are little off from what we would expect for Gaussian-distributed numbers.
+
+####3. Coefficient Std. Error
+
+The Std. Error column shows the statistical standard error for each of the coefficients. For a good model, we typically would like to see a standard error that is at least five to ten times smaller than the corresponding coefficient. 
+
+Here the Std. Error for the speed is 0.4155 which 9.46 (3.9324/0.4155 = 9.46) times smaller than the Co-efficient value. This ratio means that there is some variability in the slope estimate, ${ \beta  }_{ 1 }$.
+
+The ratio for the intercept estimate, ${ \beta  }_{ 0 }$ is only 2.6 (-17.5791/6.7584=-2.6). This smaller ratio indicates significant variability for the intercept co-efficient.
+
+####4. Residuals Std. Error
+
+The Residual standard error is a measure of the total variation in the residual values. If the residuals are distributed normally, the first and third quantiles of the previous residuals should be about 1.5 times this standard error.
+
+The number of degrees of freedom is the total number of measurements or observations used to generate the model, minus the number of coefficients in the model. This example had 50 unique rows in the data frame, corresponding to 50 independent measurements. We used this data to produce a regression model with two coefficients: the slope and the intercept. Thus, we are left with (50 - 2 = 48) degrees of freedom.
+
+####5. Multiple ${ R }^{ 2 }$
+
+The Multiple R-squared value is a number between 0 and 1. It is a statistical measure of how well the model describes the measured data.In this model, multiple ${ R }^{ 2 }$ is 0.6511, which means that the model's least-squares line accounts for approximately 65% of the variation in the stopping distance.
+
+####6. p-Value
+
+The speed's p-value is near zero and Y-intercept's p-value is ~1%, which means that there is very little chance that they are not relevant to the model.
+  
+## Model Diagnostics
+
+### Linearity Test
+
+This test is to check the degree of linear relationship between the variables - Speed and Stopiing Distance. The Component+Residual plot shows some deviation from a linear relationship.
+
+```{r}
+crPlots(cars_model, smooth = list(span=0.75))
+```
+
+### Normality Test
+
+This checks if the residuals of the model follow a Normal Distribution. Another test of the residuals uses the quantile-versus-quantile, or Q-Q, plot. if the model fits the data well, we would expect the residuals to be normally (Gaussian) distributed around a mean of zero.
+
+Per the Residual Histogram and Q-Q plots below, the residuals are not normally distributed. There are some outliers on the left-side of the distribution.
+
+```{r}
+## Resudual Histogarm Plot
+p <- ggplot(cars_model) + 
+  geom_histogram(aes(x=cars_model$residuals, y=..density..),
+                    binwidth = 5, fill = "grey", color = "black")
+
+xn <- seq(min(cars_model$residuals), max(cars_model$residuals), length.out = 100)
+yn <- dnorm(xn, mean(cars_model$residuals), sd(cars_model$residuals))
+
+df <- with(cars_model, data.frame(x=xn, y=yn))
+
+p + geom_line(data = df, aes(x = xn, y = yn), color = "red")+
+  ggtitle("Residual Histogram with Density Plot") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# QQ Plot using resid_panel function from ggResidpanel package
+resid_panel(cars_model, plots=c('qq'))
+
+```
+
+### Homoscedasticity Test
+
+This test is conducted to check the constant cariability of residuals. 
+
+ - Based on the scatter plot, the residuals do show some small deviation in variability.
+ - The Non-constant Variance Score Test has a p-value of <.05, which means that we reject the null hypothesis of homoscedasticity.
+
+```{r}
+# Residual Vs. Fitted Plot
+ggplot(cars_model, aes(.fitted, .resid))+
+    geom_point(size =2) +
+    stat_smooth(method="loess")+
+    geom_hline(yintercept=0, col="red", linetype="dashed") +
+    xlab("Fitted values")+ylab("Residuals") +
+    ggtitle("Residual vs Fitted Plot")+theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5))
+
+# Non-Constant Variance Test
+ncvTest(cars_model)
+```
+
+### Independence Test
+
+This test ensures that data is from a completely random sample and not from a Time Series etc.
+
+The function **durbinWatsonTest()** from car package verifies if the residuals from a linear model are correlated or not:
+
+The null hypothesis (${ H }_{ 0 }$) is that there is no correlation among residuals, i.e., they are independent.
+The alternative hypothesis (${ H }_{ a }$) is that residuals are autocorrelated.
+
+The Durbin Watson test's p-value is >.05. Therefore, we fail to reject the null hypothesis of independence (no autocorrelation).
+
+```{r}
+durbinWatsonTest(cars_model)
+```
+
+### Residial Analysis Summary
+
+Below is a summary of the Residual Analysis using the **resid_panel** function of the **ggResidpanel** package.
+```{r}
+resid_panel(cars_model, plots='all')
+```
+
+## Conclusion
+
+Based upon above Model Diagnostics, it can be concluded that the speed alone is not a very good predictor of stopping distance of a car. Also based on the output of the gvlma function on cars_model and the corresponding plot, we can find that the conditions for linear regression have not been met.
+
+```{r}
+gvlma(cars_model)
+plot(gvlma(cars_model))
+
+```
+
+## References:
+
+[Global Validation of Linear Model Assumptions](https://www.rdocumentation.org/packages/gvlma/versions/1.0.0.2)
+
+[An Introduction to ggResidpanel](https://cran.r-project.org/web/packages/ggResidpanel/vignettes/introduction.html)

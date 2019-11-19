@@ -1,0 +1,269 @@
+---
+title: "DATA 605 - HW Assignment12 - Multi-Factor Linear Regression"
+author: "Soumya Ghosh"
+date: "November 17, 2019"
+output:
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r cache=FALSE, results=FALSE, warning=FALSE, comment=FALSE, message=FALSE}
+library(ggplot2)
+library(ggResidpanel)
+```
+
+## Dataset Summary
+
+The attached who.csv dataset contains real-world data from 2008. The variables included follow -
+
+**Country:** name of the country
+
+**LifeExp:** average life expectancy for the country in years
+
+**InfantSurvival:** proportion of those surviving to one year or more
+
+**Under5Survival:** proportion of those surviving to five years or more
+
+**TBFree:** proportion of the population without TB.
+
+**PropMD:** proportion of the population who are MDs
+
+**PropRN:** proportion of the population who are RNs
+
+**PersExp:** mean personal expenditures on healthcare in US dollars at average exchange rate
+
+**GovtExp:** mean government expenditures per capita on healthcare, US dollars at average exchange rate
+
+**TotExp:** sum of personal and government expenditures.
+
+Below is a preview if the data set -
+
+```{r}
+df <- read.csv("https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-606/Multi%20Linear%20Regression/Data/who.csv")
+head(df)
+dim(df)
+
+```
+
+Here is the statistical summary of the data -
+```{r}
+
+summary(df)
+```
+
+### Objective
+
+In this exercise we will build a Multi-Factor linear regression model. Below are the objectives -
+
+1. Provide a scatterplot of LifeExp~TotExp, and run simple linear regression. Do not transform the variables. Provide and interpret the F statistics, R^2, standard error,and p-values only. Discuss whether the assumptions of simple linear regression met.
+
+#### Visualize the Data
+
+The first step in the simple linear regression modeling process is to determine whether or not it looks as though a linear relationship exists between the predictor and the output value. Let's inspect through a scatter plot if there is any apparent linear relationship between the Preditor (TotExp) and Response variable (LifeExp) -
+
+```{r}
+ggplot(df, aes(x=TotExp, y=LifeExp)) + 
+  geom_point(size=2) +
+  geom_smooth(method=lm) +
+  ggtitle("Life Expectancy Vs. Total Expenditure Scatter Plot") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+#### Linear Model Function
+
+I am going to use R's lm() function to generate a linear model. For the one factor model, R computes the values of ${ \beta  }_{ 0 }$ and ${ \beta  }_{ 1 }$ using the method of least squares which finds the line that most closely fits the measured data by minimizing the distance between the line and the data points.
+
+```{r}
+lm_model <- lm(LifeExp ~ TotExp, df)
+
+lm_model
+```
+
+
+####Model Coefficients Summary
+
+```{r}
+summary(lm_model)
+```
+
+#### Model Interpretation
+
+```{r fig.wodth=10, fig.height=8}
+
+# Residuals plots
+resid_panel(lm_model, plots='all', smoother = TRUE)
+
+```
+
+####Comments
+
+The p-value suggests a statistically significant correlation between total expenditures and life expectancy, since p<<0.05. The ${ R }^{ 2 }$ of 0.2577 means that about 25.77% of the variability of life expectancy about the mean is explained by the model. This is a moderately weak correlation. The F-statistic tells us that adding the variable 'total expenditures' to the model improves the model compared to only having an intercept. The residual standard error tells us that, if the residuals are normally distributed, about 64% of the residuals are between ±9.371 years. These statistics suggest we have a useful model.
+
+The linear model, when plotted over the data, does not match the data very closely. Furthermore, the residual analysis shows that the residuals have a strong right skew and do not show constant variance. Therefore, the linear model is not valid in this case.
+
+2. Raise life expectancy to the 4.6 power (i.e., LifeExp^4.6). Raise total expenditures to the 0.06 power (nearly a log transform, TotExp^.06). Plot LifeExp^4.6 as a function of TotExp^.06, and r re-run the simple regression model using the transformed variables. Provide and interpret the F statistics, R^2, standard error, and p-values. Which model is "better?"
+
+Transforming the variables as noted in Question 2.
+
+```{r warning=FALSE, comment=FALSE, message=FALSE}
+# Transformations
+LifeExpNew <- df$LifeExp**4.6
+TotExpNew <- df$TotExp**0.06
+
+
+# Linear regression model build
+lmNew_model <- lm(LifeExpNew ~ TotExpNew)
+
+# Scatterplot of dependent and independent variables
+ggplot(df, aes(x=TotExpNew, y=LifeExpNew)) +
+  geom_point(size=2) +
+  geom_smooth(method=lm) +
+  ggtitle("Life Expectancy vs Total Expenditures (Modified)") +
+  xlab("Total Expenditures") +
+  ylab("Life Expectancy") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Linear regression model summary
+summary(lmNew_model)
+
+# Residuals variability plot
+ggplot(lmNew_model, aes(.fitted, .resid))+
+    geom_point(size =2) +
+    stat_smooth(method="loess")+
+    geom_hline(yintercept=0, col="red", linetype="dashed") +
+    xlab("Fitted values")+ylab("Residuals") +
+    ggtitle("Residual vs Fitted Plot (New)")+theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5))
+
+# Residuals Q-Q plot
+resid_interact(lmNew_model, plots='qq', smoother = TRUE)
+
+# Residuals plot
+resid_interact(lmNew_model, plots='resid', smoother = TRUE)
+
+# Residuals plot
+resid_interact(lmNew_model, plots='yvp', smoother = TRUE)
+
+# Residuals Standardized Vs. Leverage plot
+resid_interact(lmNew_model, plots='lev', smoother = TRUE)
+
+# Residuals Box plot
+resid_interact(lmNew_model, plots='boxplot', smoother = TRUE)
+
+# Residuals Locations-Scale plot
+resid_interact(lmNew_model, plots='ls', smoother = TRUE)
+
+```
+
+### Model Comparisons
+
+Below is comparison between the two models using ggResidPanel compare function -
+
+```{r fig.height=20, fig.width=10}
+
+resid_compare(list(lm_model,lmNew_model),plots=c('resid','qq','yvp','lev','boxplot','ls'), smoother = TRUE)
+
+```
+
+
+#### Comments
+
+QQ plot line and residual vs fitted graph suggests that at least model 2 is closer to normal distribution than model 1. 
+
+The p-value suggests a statistically significant correlation between total expenditures^0.06 and life expectancy^4.6, since p<<0.05. The ${ R }^{ 2 }$ of 0.7298 means that about 72.98% of the variability of life expectancy about the mean is explained by the model. This is a moderately strong correlation. The F-statistic tells us that adding the variable 'total expenditures' to the model improves the model compared to only having an intercept 507.7 is much larger than 65.26, so it is a better fit than before. Note that The residual standard error tells us that, if the residuals are normally distributed, about 64% of the residuals are between ±90490000 years^4.6. These statistics suggest we have a useful model.
+
+The linear model, when plotted over the data, matches the data more closely. Furthermore, the residual analysis shows that the residuals are normally distributed and show constant variance; there is no noticeable trend. Therefore, the linear model is valid in this case.
+
+Overall, model 2 is much better than model 1.
+
+3. Using the results from 3, forecast life expectancy when TotExp^.06 =1.5. Then forecast life expectancy when TotExp^.06=2.5.
+
+```{r}
+predictdata <- data.frame(TotExpNew=c(1.5,2.5))
+predict(lmNew_model, predictdata,interval="predict")^(1/4.6)
+
+```
+
+
+Predicting the values at 1.5 adn 2.5 provides the following results.
+
+The prediction at 1.5 is 63 years with a CI(35.93545, 73.00793).
+
+The prediction at 2.5 is 87 year with a CI(81.80643, 90.43414)
+
+4. Build the following multiple regression model and interpret the F Statistics, R^2, standard error, and p-values. How good is the model?
+LifeExp = b0+b1 x PropMd + b2 x TotExp +b3 x PropMD x TotExp
+
+```{r warning=FALSE, comment=FALSE, message=FALSE}
+# Multiple linear regression model build
+lm4 <- lm(LifeExp ~ PropMD + TotExp + TotExp:PropMD, data=df)
+
+# Linear regression model summary
+summary(lm4)
+
+# Residuals variability plot
+ggplot(lm4, aes(.fitted, .resid))+
+    geom_point(size =2) +
+    stat_smooth(method="loess")+
+    geom_hline(yintercept=0, col="red", linetype="dashed") +
+    xlab("Fitted values")+ylab("Residuals") +
+    ggtitle("Residual vs Fitted Plot")+theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5))
+
+# Residuals Q-Q plot
+resid_interact(lm4, plots='qq', smoother = TRUE)
+
+# Residuals plot
+resid_interact(lm4, plots='resid', smoother = TRUE)
+
+# Residuals plot
+resid_interact(lm4, plots='yvp', smoother = TRUE)
+
+# Residuals Standardized Vs. Leverage plot
+resid_interact(lm4, plots='lev', smoother = TRUE)
+
+# Residuals Box plot
+resid_interact(lm4, plots='boxplot', smoother = TRUE)
+
+# Residuals Locations-Scale plot
+resid_interact(lm4, plots='ls', smoother = TRUE)
+
+```
+
+####Comments
+
+P-values for each variable and F-statistics are all below 0.05 so the results are statistically significant. We reject null hypothesis. Adjusted R^2 is around 0.3471 and it is substantially higher than model 1 but less than model 2. Residual standard error is smaller than model 1 but not model 2, with respect to residual standard error divided by variable coefficients. The model is not normally distributed according to QQ plot and residual vs fitted graph test, similar to model 1. The residual analysis shows that the residuals have a strong right skew and do not show constant variance. Therefore, the linear model is not valid in this case.
+
+5. Forecast LifeExp when PropMD=.03 and TotExp = 14. Does this forecast seem realistic? Why or why not?
+
+```{r}
+newdata <- data.frame(PropMD=0.03, TotExp=14)
+predict(lm4, newdata,interval="predict")
+
+```
+
+Predicting the values at PropMD=0.03, TotExp=14 provides the following results.
+
+The prediction is 107.7 years with a CI(84.24791, 131.1441).
+
+A prediction of Life Expectancy of 107.7 years seems unrealistic since this is way above the the commonly known human life expectancy, also the CI also shows 132 years which is abnormal.
+
+Furthermore, 3% of the population being MDs seems unreasonably high and Total Expenditures of $14 seems unreasonably low as that includes both personal and government expenditures.
+
+
+  
