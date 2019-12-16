@@ -1,0 +1,733 @@
+---
+title: "DATA 605 - Final Project"
+author: "Soumya Ghosh"
+date: "December 05, 2019"
+output:
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r warning=FALSE, message=FALSE}
+library(kableExtra)
+library(tidyverse)
+```
+
+##Computational Mathematics
+
+1. Using R, generate a random variable X that has 10,000 random uniform numbers from 1 to N, where N can be any number of your choosing greater than or equal to 6.  Then generate a random variable Y that has 10,000 random normal numbers with a mean of $\mu =\sigma =\frac { (N+1) }{ 2 }$
+
+**Ans:** 
+
+### Random Variable X
+
+```{r}
+N<- round(runif(1, 6, 100))
+n <- 10000
+
+X <- runif(n,1,N)
+hist(X)
+```
+
+### Random Variable Y
+
+```{r}
+mu <- (N+1)/2
+sigma <- (N+1)/2
+
+Y <- rnorm(n,mu,sigma)
+hist(Y)
+abline(v=(N+1)/2, col = "red")
+```
+
+### Probability
+
+Calculate as a minimum the below probabilities a through c. Assume the small letter "x" is estimated as the median of the X variable, and the small letter "y" is estimated as the 1st quartile of the Y variable. Interpret the meaning of all probabilities. 
+
+```{r}
+x <- median(X)
+round(x,2)
+
+y <- quantile(Y,0.25)[[1]]
+round(y,2)
+```
+
+**1.a.   P(X>x | X>y) - Probability that X is greater than its median given that X is greater than the first quartile of Y.**
+
+$P(X>x|X>y)=\frac { P(X>x,X>y) }{ P(X>y) }$
+
+```{r}
+# Probability expression for X greater than mean(x) given that X greater than the 1st quartile of Y(y) 
+# Numerator: Sum of all random numbers X greater than the mean and Q1 of Y divided by all possible X 
+prob_num <- sum(X>x & X>y)/n
+
+# Denominator: Sum of all X greater than y divided by all X
+prob_den <- sum(X>y)/n
+
+prob = round(prob_num/prob_den, 2)
+
+cat('Probability: ',prob)
+```
+
+**1.b.  P(X>x, Y>y)	- Probability that X is greater than its median as well as greater than the first quartile of Y.**
+
+```{r}
+# Probablity of X greater than the mean and Y greater than 1st quartile
+
+prob = round(sum(X>x & Y>y)/n, 2)
+
+cat('Probability: ',prob)
+```
+
+**1.c.   $P(X<x|X>y)$ - Probability that X is lesser than its median given that X is greater than the first quartile of Y.**
+
+$P(X<x|X>y)=\frac { P(X<x,X>y) }{ P(X>y) }$
+
+```{r}
+# Probability expression for X lesser than mean(x) given that X greater than the 1st quartile of Y(y) 
+# Numerator: Sum of all random numbers X lesser than the mean but greater than Q1 of Y divided by all possible X 
+prob_num <- sum(X<x & X>y)/n
+
+# Denominator: Sum of all X greater than y divided by all X
+prob_den <- sum(X>y)/n
+
+prob = round(prob_num/prob_den, 2)
+
+cat('Probability: ',prob)
+```
+
+
+## Independence Test
+
+**Investigate whether P(X>x and Y>y)=P(X>x)P(Y>y) by building a table and evaluating the marginal and joint probabilities.**
+
+```{r}
+matrix<-matrix( c(sum(X>x & Y<y),sum(X>x & Y>y), sum(X<x & Y<y),sum(X<x & Y>y)), nrow = 2,ncol = 2)
+matrix<-cbind(matrix,c(matrix[1,1]+matrix[1,2],matrix[2,1]+matrix[2,2]))
+matrix<-rbind(matrix,c(matrix[1,1]+matrix[2,1],matrix[1,2]+matrix[2,2],matrix[1,3]+matrix[2,3]))
+contingency<-as.data.frame(matrix)
+names(contingency) <- c("X>x","X<x", "Total")
+row.names(contingency) <- c("Y<y","Y>y", "Total")
+
+contingency %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+
+prob_matrix<-matrix/matrix[3,3]
+contingency_p<-as.data.frame(prob_matrix)
+names(contingency_p) <- c("X>x","X<x", "Total")
+row.names(contingency_p) <- c("Y<y","Y>y", "Total")
+
+round(contingency_p,2) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+### Compute P(X>x)P(Y>y)
+
+```{r}
+round(prob_matrix[3,1]*prob_matrix[2,3],3)
+```
+
+### Compute P(X>x and Y>y)
+
+```{r}
+round(prob_matrix[2,1],digits = 3)
+```
+
+### Euality Check
+
+```{r}
+round(prob_matrix[3,1]*prob_matrix[2,3],3)==round(prob_matrix[2,1],digits = 3)
+```
+
+Since the results are so similar we would conclude that X and Y are indeed independent.
+
+
+**Check to see if independence holds by using Fisher's Exact Test and the Chi Square Test.  What is the difference between the two? Which is most appropriate?**
+
+**Ans:**
+
+```{r}
+fisher.test(matrix,simulate.p.value=TRUE)
+
+chisq.test(matrix, correct=TRUE)
+```
+
+
+Fisher's Exact Test for Independence is known to be more accurate than Chi Square Test and recommended to be used when we have small sample sizes (typically less than 1000). The Chi Square Test is used when the cell sizes are large. Since, in our case we are dealing with a distribution of 10,000 random numbers, it would be appropriate to use Chi Square test.
+
+2. You are to register for Kaggle.com (free) and compete in the House Prices: Advanced Regression Techniques competition.  https://www.kaggle.com/c/house-prices-advanced-regression-techniques . I want you to do the following. 
+
+5 points.  Descriptive and Inferential Statistics. Provide univariate descriptive statistics and appropriate plots for the training data set.  Provide a scatterplot matrix for at least two of the independent variables and the dependent variable. Derive a correlation matrix for any three quantitative variables in the dataset.  Test the hypotheses that the correlations between each pairwise set of variables is 0 and provide an 80% confidence interval.  Discuss the meaning of your analysis.  Would you be worried about familywise error? Why or why not?
+
+5 points. Linear Algebra and Correlation.  Invert your correlation matrix from above. (This is known as the precision matrix and contains variance inflation factors on the diagonal.) Multiply the correlation matrix by the precision matrix, and then multiply the precision matrix by the correlation matrix. Conduct LU decomposition on the matrix.  
+
+5 points.  Calculus-Based Probability & Statistics.  Many times, it makes sense to fit a closed form distribution to data.  Select a variable in the Kaggle.com training dataset that is skewed to the right, shift it so that the minimum value is absolutely above zero if necessary.  Then load the MASS package and run fitdistr to fit an exponential probability density function.  (See  https://stat.ethz.ch/R-manual/R-devel/library/MASS/html/fitdistr.html ). Find the optimal value of $\lambda$ for this distribution, and then take 1000 samples from this exponential distribution using this value (e.g., rexp(1000, $\lambda$???)).  Plot a histogram and compare it with a histogram of your original variable.   Using the exponential pdf, find the 5th and 95th percentiles using the cumulative distribution function (CDF). Also generate a 95% confidence interval from the empirical data, assuming normality.  Finally, provide the empirical 5th percentile and 95th percentile of the data.  Discuss.
+
+10 points.  Modeling.  Build some type of multiple regression  model and submit your model to the competition board.  Provide your complete model summary and results with analysis.  Report your Kaggle.com user name and score.
+
+##Kaggle House Prices Competition
+
+### Libraries Used
+
+```{r warning=FALSE, message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(plotly)
+library(MASS)
+library(corrplot)
+library(RColorBrewer)
+library(GGally)
+library(ggResidpanel)
+```
+
+### Data Sources
+
+The following data source and metadata dictionary files were downloaded from the [Kaggle Competition site]('https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data') to my GitHub project directory -
+
+ - **train.csv** - housing characteristics data including 80 Numerical and Categorical attributes and the target variable - (https://github.com/soumya2g/R-CUNY-MSDS/blob/master/DATA-605/House%20Price%20Analysis/Data%20Source/house-prices-advanced-regression-techniques/train.csv)
+ - **test.csv** - test data set to use for prediction submitted to Kaggle.com (https://github.com/soumya2g/R-CUNY-MSDS/blob/master/DATA-605/House%20Price%20Analysis/Data%20Source/house-prices-advanced-regression-techniques/test.csv)
+ - **data_description.txt** - data dictionary for housing prices data set (https://github.com/soumya2g/R-CUNY-MSDS/blob/master/DATA-605/House%20Price%20Analysis/Data%20Source/house-prices-advanced-regression-techniques/data_description.txt)
+ - **sample_submission.csv** - a benchmark submission from a linear regression on year and month of sale, lot square footage, and number of bedrooms (https://github.com/soumya2g/R-CUNY-MSDS/blob/master/DATA-605/House%20Price%20Analysis/Data%20Source/house-prices-advanced-regression-techniques/sample_submission.csv)
+ 
+### Load Train Data into R
+
+The train.csv file is loaded into a R data frame 'housing_pr_train' -
+
+```{r}
+housing_pr_train <- read.csv('https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-605/House%20Price%20Analysis/Data%20Source/house-prices-advanced-regression-techniques/train.csv',sep = ',')
+
+## Sample Data
+head(housing_pr_train) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+glimpse(housing_pr_train)
+
+```
+ 
+### Descriptive and Inferential Statistics
+
+**Provide univariate descriptive statistics and appropriate plots for the training data set. Provide a scatterplot matrix for at least two of the independent variables and the dependent variable. Derive a correlation matrix for any three quantitative variables in the dataset. Test the hypotheses that the correlations between each pairwise set of variables is 0 and provide an 80% confidence interval. Discuss the meaning of your analysis. Would you be worried about familywise error? Why or why not?**
+
+** Ans:**
+
+#### Statistical Summary
+
+```{r}
+summary(housing_pr_train)
+```
+
+#### Categorizing Attributes and Feature engineering
+
+I have categorized all the Numeric variables present in the data set into **'Discrete'** and **'Continuous'**. Similarly Categorical variables into **'Ordinal'** and **'Nominal'**.
+
+```{r}
+num_discrete <- c('BsmtFullBath','BsmtHalfBath','FullBath','HalfBath','BedroomAbvGr','KitchenAbvGr','TotRmsAbvGrd',
+                'Fireplaces','GarageCars','GarageYrBlt','YearBuilt','YearRemodAdd','YrSold','MoSold')
+
+num_continuous <- c('LotFrontage','LotArea','MasVnrArea','BsmtFinSF1','BsmtFinSF2','BsmtUnfSF','TotalBsmtSF','1stFlrSF',
+                  '2ndFlrSF','LowQualFinSF','GrLivArea','GarageArea','WoodDeckSF','OpenPorchSF','EnclosedPorch',
+                  '3SsnPorch','ScreenPorch','PoolArea','MiscVal','SalePrice')
+
+cat_ordinal <- c('LotShape','Utilities','LandSlope','OverallQual','OverallCond','ExterQual','ExterCond',
+               'BsmtQual','BsmtCond','BsmtExposure','BsmtFinType1','BsmtFinType2','HeatingQC','CentralAir',
+               'Electrical','KitchenQual','Functional','FireplaceQu','GarageFinish','GarageQual','GarageCond',
+               'PavedDrive','PoolQC','Fence')
+
+cat_nominal <- c('MSSubClass','MSZoning','Street','Alley','LandContour','LotConfig','Neighborhood',
+               'Condition1','Condition2','BldgType','HouseStyle','RoofStyle','RoofMatl','Exterior1st',
+               'Exterior2nd','MasVnrType','Foundation','Heating','GarageType','MiscFeature',
+               'SaleType','SaleCondition')
+
+```
+
+#### **Feature engineering**
+
+Consolidate similar variables like No. of Bathrooms - BsmtFullBath, BsmtHalfBath, FullBath, HalfBath etc. into a single variable **Baths**.
+
+```{r}
+# Those variables tell almost the same information, so let's add them.
+housing_pr_train$Baths <- housing_pr_train$BsmtFullBath + 0.5*housing_pr_train$BsmtHalfBath + housing_pr_train$FullBath + 0.5*housing_pr_train$HalfBath
+
+# Derive CentralAirScore as discrete variable
+housing_pr_train$CentralAirScore <- ifelse(housing_pr_train$CentralAir == "N", 0, 1)
+
+# Remove redundant variables
+housing_pr_train <- subset(housing_pr_train, select = -c(Id,BsmtFullBath,BsmtHalfBath,FullBath,HalfBath))
+
+# Remove Variable with 'NA' values
+housing_pr_train <- housing_pr_train %>% subset(select = -c(LotFrontage,MasVnrArea,GarageYrBlt))
+
+```
+
+#### **Visualizations**
+
+##### **A. Scatterplot Matrix**
+
+For building the scatterplot matrix with the dependant variable (**SalePrice**), I have chosen following independent variables - **LotArea**, **TotRmsAbvGrd**, Total No. of Bathrooms(**Baths**), **GrLivArea**, **GarageCars** etc.
+
+```{r warning=FALSE, message=FALSE, fig.height=8, fig.width=8}
+
+train_subset <- subset(housing_pr_train,select = c(LotArea,TotRmsAbvGrd,Baths,GrLivArea,OverallQual,SalePrice))
+
+p <- ggpairs(data=train_subset, # data.frame with variables
+             columns=1:6, # columns to plot, default to all.
+             title="House Prices data") # title of the plot
+
+ggplotly(p)
+
+```
+
+##### A.1. Box Plot - Overall Quality
+
+From the Scatterplot matrix above, Overall Quality can be inferred as an influential variable for the SalePrice of a house.
+
+```{r}
+train_subset$OverallQual_factor <- factor(train_subset$OverallQual)
+p <- ggplot(train_subset, aes(x=OverallQual, y=SalePrice, fill=OverallQual_factor, group=OverallQual_factor)) + 
+     geom_boxplot() +
+     ggtitle("Sale Price Vs. Overall Quality")
+
+ggplotly(p)
+```
+
+##### A.2. Box Plot - No. of Bathrooms
+
+From the Scatterplot matrix above, No. of Bathrooms is also identified as an influential variable for the SalePrice of a house.
+
+```{r}
+train_subset$OverallQual_factor <- factor(train_subset$OverallQual)
+p <- ggplot(train_subset, aes(x=Baths, y=SalePrice, fill=Baths, group=Baths)) + 
+     geom_boxplot() +
+     ggtitle("Sale Price Vs. No. of Bathrooms")
+
+ggplotly(p)
+```
+
+##### **B. Correlation Matrix**
+
+```{r }
+housing_pr_train_num <- housing_pr_train %>% select_if(is.numeric) 
+corrMatrix <- round(cor(housing_pr_train_num),4)
+corrMatrix %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+##### **C. Correlation Plots**
+
+##### C.1. Correlation Plot1 of Numeric Variables
+
+```{r fig.width=10,fig.height=10}
+corrplot(corrMatrix,method ="color")
+
+```
+
+##### C.2. Correlation Plot2 of Numeric Variables
+
+```{r fig.width=12,fig.height=12}
+
+corrplot(corrMatrix, method = "color", outline = T, addgrid.col = "darkgray", order="hclust", addrect = 4, rect.col = "black", rect.lwd = 5,cl.pos = "b", tl.col = "indianred4", tl.cex = 1.5, cl.cex = 1.5, addCoef.col = "white", number.digits = 2, number.cex = 0.75, col = colorRampPalette(c("darkred","white","midnightblue"))(100))
+
+```
+
+Based on the above Corrleation plot, 3 variables with highest correlation scores are - **OverallQual**, **GrLivArea** and **GarageCars**.
+
+#### **Hypothesis Testing**
+
+**Test the hypotheses that the correlations between each pairwise set of variables is 0 and provide an 80% confidence interval. Discuss the meaning of your analysis.**
+
+```{r}
+corr_train_data <- subset(housing_pr_train_num, select=c(OverallQual,GrLivArea,GarageCars,SalePrice))
+```
+
+##### 1. SalePrice Vs. Overall Quality
+
+**Null Hypothesis** ${ H }_{ 0 }$: Correlation between House Sale Price and Overll Quality of houses is zero.
+
+**Alt. Hypothesis** ${ H }_{ A }$: Correlation between House Sale Price and Overll Quality of houses is not zero.
+
+```{r}
+cor.test(corr_train_data$SalePrice,corr_train_data$OverallQual, conf.level = 0.8)
+```
+
+
+With a low P value, we are confident the correlation between these two variables is not zero, and we are 80% confident it is between 0.778 and 0.803. Hence we accept alternate hypothesis.
+
+#### 2. SalePrice Vs. Above Ground Living Area Sq. Ft.(GrLivArea)
+
+**Null Hypothesis** ${ H }_{ 0 }$: Correlation between House Sale Price and GrLivAreay of houses is zero.
+
+**Alt. Hypothesis** ${ H }_{ A }$: Correlation between House Sale Price and GrLivArea of houses is not zero.
+
+```{r}
+cor.test(corr_train_data$SalePrice,corr_train_data$GrLivArea, conf.level = 0.8)
+```
+
+
+With a low P value, we are confident the correlation between these two variables is not zero, and we are 80% confident it is between 0.692 and 0.725. Hence we accept alternate hypothesis.
+
+  #### 3. SalePrice Vs. Size of garage in car capacity(GarageCars)q
+**Null Hypothesis** ${ H }_{ 0 }$: Correlation between House Sale Price and GarageCars of houses is zero.
+
+**Alt. Hypothesis** ${ H }_{ A }$: Correlation between House Sale Price and GarageCars of houses is not zero.
+
+```{r}
+cor.test(corr_train_data$SalePrice,corr_train_data$GarageCars, conf.level = 0.8)
+```
+
+
+With a low P value, we are confident the correlation between these two variables is not zero, and we are 80% confident it is between 0.620 and 0.659. Hence we accept alternate hypothesis.
+
+I will not be worried about Family Wise Error in this case, since for all 3 variables I have suffcient statistical evidence to reject the Null Hypothesis. 
+
+### Linear Algebra and Correlation
+
+**Invert your correlation matrix from above. (This is known as the precision matrix and contains variance inflation factors on the diagonal.) Multiply the correlation matrix by the precision matrix, and then multiply the precision matrix by the correlation matrix. Conduct LU decomposition on the matrix.**
+
+**Ans:**   
+
+#### A. Precision Matrix
+
+Invert the correlation matrix to create the precision matrix:
+
+```{r}
+precMatrix <- solve(corrMatrix)
+
+precMatrix %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+#### B. Correlation Matrix X Precision Matrix
+
+The correlation matrix is now multiplied by the precision matrix (rounding to 15 digits to remove R's decimilization at the extremes).
+
+```{r}
+round(corrMatrix %*% precMatrix, 15) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+#### C. Precision Matrix X Correlation Matrix
+
+The precision matrix is now multiplied by the correlation matrix (rounding to 15 digits to remove R's decimilization at the extremes).
+
+```{r}
+
+round(precMatrix %*% corrMatrix, 15) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+#### D. LU Decomposition
+
+```{r}
+## LU Factorization Function
+
+LUDecomposition<-function(A){
+  nrows<-nrow(A)
+  ncols<-ncol(A)
+  
+  if(nrows!=ncols){
+    print("Please enter a square matrix for LU decomposition")
+    return()
+  }
+  
+  ## Initialize Lower Triangular Matrix
+  L<- matrix(0, nrow=nrows, ncol=ncols, byrow = T)
+  
+  ## Upper Triangular Matrix initialized to A
+  U <- A
+  for(i in 1:nrows){
+    pivotElement <- U[i,i]
+    L[i,i] <- 1
+    if(i!=nrows){
+      for(j in (i+1):nrows){
+        if(U[j,i]!=0){
+          multiplier <- U[j,i]/pivotElement
+          newRow <- U[j,] - (multiplier*U[i,])
+          U[j,] <- newRow
+          L[j,i] <- multiplier
+        }
+      }
+    }
+    
+  }
+  
+  result <- list(L,U)
+
+  return(result)
+}
+
+result <- LUDecomposition(corrMatrix)
+
+L <- result[[1]]
+U <- result[[2]]
+
+print("The LU decomposition of the input matrix : ")
+
+print("A")
+L%*%U  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+print("L")
+L %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+print("U")
+U  %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+We can confirm the decomposition by comparing to our original Correlation Matrix -
+
+```{r}
+round(L %*% U ,4)== round(corrMatrix,4)
+```
+
+### Calculus-Based Probability & Statistics.  
+
+**Many times, it makes sense to fit a closed form distribution to data.  Select a variable in the Kaggle.com training dataset that is skewed to the right, shift it so that the minimum value is absolutely above zero if necessary.  Then load the MASS package and run fitdistr to fit an exponential probability density function.  (See https://stat.ethz.ch/R-manual/R-devel/library/MASS/html/fitdistr.html ). Find the optimal value of $\lambda$ for this distribution, and then take 1000 samples from this exponential distribution using this value (e.g., rexp(1000, $\lambda$)).  Plot a histogram and compare it with a histogram of your original variable. Using the exponential pdf, find the 5th and 95th percentiles using the cumulative distribution function (CDF). Also generate a 95% confidence interval from the empirical data, assuming normality.  Finally, provide the empirical 5th percentile and 95th percentile of the data.  Discuss.**
+
+**Ans:**  For this analysis, I have chosen the **GarageArea** variable in the Kaggle data set.
+
+```{r}
+Dist <- housing_pr_train$GarageArea
+
+min(Dist)
+
+```
+
+Then run fitdistr to fit an exponential probability density function.
+
+```{r}
+fitDist <- fitdistr(Dist, "exponential")
+fitDist
+```
+
+Find the optimal value of $\lambda$ for this distribution, and then take 1000 samples from this exponential distribution using this value.
+
+```{r}
+lambda <- fitDist$estimate
+sim <- rexp(1000,lambda)
+hist(sim,breaks = 100, col="blue", main="Histogram of 1000 samples with Simulation", xlab="Exponential of Lot Area (Square Feet)")
+
+hist(Dist,breaks=100, col="grey", main="Histogram of Original Data", xlab="Garage Area (Square Feet)")
+```
+
+```{r}
+sim.df <- data.frame(length = sim)
+Dist.df <- data.frame(length = Dist)
+
+sim.df$from <- 'sim'
+Dist.df$from <- 'orig'
+
+both.df <- rbind(sim.df,Dist.df)
+
+ggplotly(ggplot(both.df, aes(length, fill = from)) + geom_density(alpha = 0.2) + scale_fill_brewer(palette="Set1") +
+           ggtitle("Density plot for Original Vs. Simulated Distributions"))
+
+```
+
+Using the exponential pdf, find the 5th and 95th percentiles using the cumulative distribution function (CDF).
+
+```{r}
+quantile(sim, probs=c(0.05, 0.95))
+
+```
+
+Also generate a 95% confidence interval from the empirical data, assuming normality.
+
+```{r}
+mean(Dist)
+
+normal<-rnorm(length(Dist),mean(Dist),sd(Dist))
+hist(normal,breaks = 100, col="orange", main="Histogram of Normalized Distribution", xlab="Garage Area (Square Feet)")
+
+quantile(normal, probs=c(0.05, 0.95))
+
+
+normal.df <- data.frame(length = normal)
+normal.df$from <- 'normal'
+
+all.df <- rbind(both.df,normal.df)
+
+ggplotly(ggplot(all.df, aes(length, fill = from)) + geom_density(alpha = 0.2)+ scale_fill_brewer(palette="Set1") +
+           ggtitle("Density plot for Original Vs. Simulated Vs. Normal Distributions"))
+```
+
+Finally, provide the empirical 5th percentile and 95th percentile of the data. Discuss.
+
+```{r}
+quantile(Dist, probs=c(0.05, 0.95))
+
+```
+
+From this analysis it appears the data select was not very right skew. The exponential simulation does not match our data very well, rather, our selected empirical data matches the normal distribution a lot better. This can be seen in the final density plot, but also on the confidence interval where the limits are much closer than for the exponential approximation.
+
+### Modeling  
+
+**Build some type of multiple regression  model and submit your model to the competition board.  Provide your complete model summary and results with analysis.  Report your Kaggle.com user name and score.**
+
+**Ans:** Based on the Correlation Scores from the previous section, I have implemented a Linear Regresion model with following predictor variables -
+
+ - **YearBuilt:** Original construction date
+ - **YearRemodAdd:** Remodel date (same as construction date if no remodeling or additions)
+ - **TotalBsmtSF:** Total square feet of basement area
+ - **OverallQual:** Rates the overall material and finish of the house
+ - **OverallCond:** Rates the overall condition of the house
+ - **GrLivArea:** Above grade (ground) living area square feet
+ - **Baths:** Derived attribute from Half and Full Baths at basement and above ground level
+ - **GarageCars:** Size of garage in car capacity
+ - **GarageArea:** Size of garage in square feet
+ - **BedroomAbvGr:** Bedrooms above grade (does NOT include basement bedrooms)
+ - **KitchenAbvGr:** Kitchens above grade
+ - **TotRmsAbvGrd:** Total rooms above grade (does not include bathrooms)
+ - **CentralAirScore:** Does not have A/C = 0, does have A/C = 1
+ - **LogLotArea:**  Log transformation of Lot size in square feet
+
+I have used log transformtaion for the Lot Area and SalePrice variables.
+
+```{r}
+housing_pr_train$LogLotArea <- log(housing_pr_train$LotArea)
+housing_pr_train$LogSalePrice <- log(housing_pr_train$SalePrice)
+
+model_train_df <- subset(housing_pr_train, select = c(YearBuilt,YearRemodAdd,TotalBsmtSF,OverallQual,OverallCond,GrLivArea,Baths,
+                                GarageCars,GarageArea,BedroomAbvGr,KitchenAbvGr,TotRmsAbvGrd,CentralAirScore,LogLotArea, LogSalePrice))
+
+
+```
+ 
+#### Linear Model Iterations 
+
+Next, I created a linear model with all 14 variables and then found the optimized model with the final list of predictors using Stepwise regreesion technique.
+
+##### **Initial Regression Model**
+
+```{r}
+## Initial Model
+lm_full_model <- lm(LogSalePrice ~ YearBuilt + YearRemodAdd + TotalBsmtSF + OverallQual + OverallCond + GrLivArea + Baths + GarageCars +
+                 GarageArea + BedroomAbvGr + KitchenAbvGr + TotRmsAbvGrd + CentralAirScore + LogLotArea, data = model_train_df)
+
+## Model Summary
+summary(lm_full_model)
+```
+
+
+##### **Stepwise Regression Model**
+
+I have used the stepAIC() function from MASS package, which choose the best model by AIC. I have used a combined forward and backward elimination process using *direcition* parameter as ***'both'***.
+
+```{r}
+train_model <- stepAIC(lm_full_model, direction = "both", 
+                      trace = FALSE)
+
+summary(train_model)
+```
+
+Now all predictors have p vlaues less than 0.05.
+
+```{r}
+train_model$coefficients
+```
+
+##### **Model Equation**
+
+```{r}
+
+## Build Function for Regression Model
+train_model_equation <- function(YearBuilt,YearRemodAdd,TotalBsmtSF,OverallQual,OverallCond,GrLivArea,Baths,
+                                GarageCars,BedroomAbvGr,KitchenAbvGr,TotRmsAbvGrd,CentralAirScore,LogLotArea) { 
+  (3.459613 + (0.002336921 * YearBuilt) + (0.0007713103 * YearRemodAdd) + (0.00009372069 * TotalBsmtSF) + (0.08814626 * OverallQual) + (0.04654093 * OverallCond) + (0.0001634841 * GrLivArea) + (0.06318413 * Baths) + (0.07046074 * GarageCars) + (-0.01900090 * BedroomAbvGr) + (-0.09223818 * KitchenAbvGr) + (0.01519203 * TotRmsAbvGrd) + (0.08720929 * CentralAirScore) + (0.01085608 * LogLotArea)) 
+  }
+
+```
+
+The linear regression equation is as follows:
+
+logSalePrice = 3.459613 + (0.002336921 * YearBuilt) + (0.0007713103 * YearRemodAdd) + (0.00009372069 * TotalBsmtSF) + (0.08814626 * OverallQual) + (0.04654093 * OverallCond) + (0.0001634841 * GrLivArea) + (0.06318413 * Baths) + (0.07046074 * GarageCars) + (-0.01900090 * BedroomAbvGr) + (-0.09223818 * KitchenAbvGr) + (0.01519203 * TotRmsAbvGrd) + (0.08720929 * CentralAirScore) + (0.01085608 * LogLotArea)
+
+##### **Model Interpretation**
+
+Having constructed a model where all p-values are below 0.05, I looked the residual plot, Q-Q plot and other relevant plots using ggresidpanel package:
+
+```{r fig.height=10, fig.width=10}
+
+resid_panel(train_model, plots='all', smoother = TRUE)
+```
+
+
+```{r}
+# Residuals plot
+resid_interact(train_model, plots='resid', smoother = TRUE)
+```
+
+```{r}
+# Q-Q plot
+resid_interact(train_model, plots='qq', smoother = TRUE)
+```
+
+The residual plot is acceptable with few outliers but he Q-Q plot is heavily tailed. This is not necessarily a surprise because during step wise regression model selection process, as the model was evaluated, the residuals, though fairly centered in terms of mean and quartiles, exhibited skew on the minimum end. We can see that in the residual plot in that there are two huge outliers and there appear to be sligtly more plots below zero than above zero.
+
+#### Test Model
+
+Next, I read in the test data and used the linear regression model to predict logSalePrice, which was then tranformed back to SalePrice:
+
+##### ** Load Test Data**
+```{r}
+housing_pr_test <- read.csv('https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-605/House%20Price%20Analysis/Data%20Source/house-prices-advanced-regression-techniques/test.csv',sep = ',')
+
+```
+
+##### **Apply Feature Engineering**
+
+```{r}
+# Consolidate no. of baths
+housing_pr_test$Baths <- housing_pr_test$BsmtFullBath + 0.5*housing_pr_test$BsmtHalfBath + housing_pr_test$FullBath + 0.5*housing_pr_test$HalfBath
+
+# Derive CentralAirScore as discrete variable
+housing_pr_test$CentralAirScore <- ifelse(housing_pr_test$CentralAir == "N", 0, 1)
+
+# Calculate log of LotArea
+housing_pr_test$LogLotArea <- log(housing_pr_test$LotArea)
+
+```
+
+##### **Model Prediction**
+
+```{r}
+# predict logSalePrice using the test data and linear regression model
+lm_predicted <- train_model_equation(housing_pr_test$YearBuilt,housing_pr_test$YearRemodAdd,housing_pr_test$TotalBsmtSF,
+                                     housing_pr_test$OverallQual,housing_pr_test$OverallCond,housing_pr_test$GrLivArea,
+                                     housing_pr_test$Baths,housing_pr_test$GarageCars,housing_pr_test$BedroomAbvGr,
+                                     housing_pr_test$KitchenAbvGr,housing_pr_test$TotRmsAbvGrd,housing_pr_test$CentralAirScore,
+                                     housing_pr_test$LogLotArea)
+
+# compute mean
+lm_predicted_mean <- mean(lm_predicted, na.rm = TRUE)
+
+# replace NA values with mean
+lm_predicted <- ifelse(is.na(lm_predicted) == TRUE, lm_predicted_mean, lm_predicted)
+
+# transform logSalePrice prediction to SalePrice
+lm_predicted <- (exp(1))^lm_predicted
+
+# put transformed SalePrice into data frame
+lm_predicted_df <- data.frame(cbind(seq(from = 1461, to = 2919, by = 1), lm_predicted))
+
+# change column names to Id and SalePrice
+colnames(lm_predicted_df) <- c("Id","SalePrice")
+
+# export to .csv for submission
+write.csv(lm_predicted_df, file = "C:/CUNY/Semester3 (Fall)/DATA 605/Assignments/Final Project/Output/submission.csv",row.names = FALSE)
+```
+
+
+#### Kaggle Submission Details
+
+My Kaggle user name is soumya2g. Below is a screenshot of the submission.
+
+[Kaggle Leaderboard Screenshot](https://github.com/soumya2g/R-CUNY-MSDS/blob/master/DATA-605/House%20Price%20Analysis/kaggle_submission.PNG)
