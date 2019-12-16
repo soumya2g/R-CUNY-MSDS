@@ -730,4 +730,6 @@ write.csv(lm_predicted_df, file = "C:/CUNY/Semester3 (Fall)/DATA 605/Assignments
 
 My Kaggle user name is soumya2g. Below is a screenshot of the submission.
 
+Kaggle Score: 0.90655
+
 [Kaggle Leaderboard Screenshot](https://github.com/soumya2g/R-CUNY-MSDS/blob/master/DATA-605/House%20Price%20Analysis/kaggle_submission.PNG)
