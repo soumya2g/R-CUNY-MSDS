@@ -1,0 +1,145 @@
+---
+title: "DATA 608 - Final Project Proposal"
+author: "Soumya Ghosh"
+date: "November 1, 2019"
+output: 
+  html_document: 
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 4
+  #  number_sections: true
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+  #  code_folding:hide
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Title:New York Solar Electric Program Study - Interactive Visualization  
+
+### Project Background
+
+On August 4, 2011, the Power New York Act of 2011 was signed into law, which directed New York State Energy Research and Development Authority (NYSERDA) to conduct a Study on Increasing Generation from Photovoltaic (PV) Devices in New York (the Solar Study). While the current contribution of solar electric (PV) energy generation is small and the cost of the technology is at a premium compared with market electricity prices, the Act sought analysis of the benefits and costs of PV, acknowledging that costs are declining and noting the potential for PV energy generation to contribute to economic development and job creation in the State.
+
+Specifically, the Act directed that the Solar Study should:
+ 
+ - Identify administrative and policy options that could be used to achieve goals of 2,500 Megawatts (MW) of PV installations operating by 2020 and 5,000 MW operating by 2025 (the "Goals");
+ 
+ - Estimate the per MW cost of achieving increased generation from PV devices and the costs of achieving the Goals using the options identified in the analysis;
+ 
+ - Analyze the net economic and job creation benefits of achieving the Goals using each of the options identified in the analysis; and
+ 
+ - Conduct an analysis of the environmental benefits of achieving the Goals using the options identified in the analysis.
+ 
+### Objective
+
+The goal of the final project is to interactively analyze the available data to -
+
+ - Plot NYSERDA reported data on NY state map capturing summarized gnerated metrics at county and/or city level from 2000 to September'2019
+ 
+ - Create visualizations and analyze annual trends of Cumulative Vs. Annual growth for metrics like Total Capacity Generated, Number of Solar Projects Completed, Cost & Incentive per Watt, Expected Annual production etc.
+ 
+ - Create summary visualization and comparatives between various sectors (Residential Vs. Commercial etc.) for metrics like Total Capacity (in MW), No. of projects etc. for projects already Completed and on Pipeline by county and/or city
+
+ - Use Cross filtering and other techniques across different charts to create a more coherent user experience
+ 
+### Data Source
+
+#### **Primary Source**
+
+For this project I am going to use Solar Electric Programs data provided by New York State Energy Research and Development Authority (NYSREDA). The detailed description of the data set is hosted on the below DATA.NY.GOV site -
+[Data Site](https://data.ny.gov/Energy-Environment/Solar-Electric-Programs-Reported-by-NYSERDA-Beginn/3x8r-34rs)
+
+The Data Dictionary for the data set is available at [Link](https://data.ny.gov/api/views/3x8r-34rs/files/cf4cdff8-056b-4e09-a056-5fcce38756cd?download=true&filename=NYSERDA_SolarElectric_DataDictionary.pdf) 
+
+This dataset includes information on solar photovoltaic (PV) installations supported by NYSERDA throughout New York State since 2000 by county, region, or statewide.
+
+#### **Supplementary Source**
+
+Since the primary source mentioned above provides only the details of the NYSREDA supported solar projects, I am planning to incorporate summary level aggregated data including the projects that didn't receive state funding to create a comprehensive statewide view of available total installed solar capacity for all of New York. Apart from aggregated data from NYSERDA, this summary view includes data from NYS Department of Public Service (DPS), and the New York Independent System Operator (NYISO). I am planning to export tabular summarized data from the below NYSREDA page -
+
+[NY Statewide Aggregate](https://www.nyserda.ny.gov/All-Programs/Programs/NY-Sun/Solar-Data-Maps/Statewide-Projects)
+
+### Data Description
+
+#### **Attribute List**
+
+
+```{r}
+
+library(jsonlite)
+library(kableExtra)
+
+url = "https://data.ny.gov/resource/3x8r-34rs.json?$limit=20&$offset=0"
+nysolardata <- fromJSON(url, simplifyVector = TRUE, flatten = TRUE)
+
+names(nysolardata) 
+```
+
+#### **Sample Data**
+
+```{r}
+nysolardata %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+### Technologies Involved
+
+I am planning to build an interactive Visualization application with either R Shiny OR Python Dash with Plotly as the primary visualization library. Also, I am planning to use SOCRATA JSON API to dynamically query data with SoSQL queries to optimize data extraction process for this project.
+
+### Importance of the Topic
+
+Solar energy is one of the major alternative clean sources of energy and State of New York is a national leader in the deployment and production of renewable energy. As part of this journey towards clean energy transition with the most aggressive climate change program in the nation, the State is on the path to be entirely carbon-neutral across all sectors of the economy.
+
+Governor Andrew M. Cuomo's Green New Deal calls for 70 percent of the State's electricity to come from renewable sources by 2030 and 5,000 megawatts of solar by 2025. NY-Sun, the Governor's $1 billion solar initiative advances the scale-up of solar is moving the State to a more sustainable, self-sufficient solar industry. 
+
+However, there is significant uncertainty in estimating the cost of PV out to 2025. Experts project that the installed cost of PV by 2025 could range from $1.4 to $4.3 million per installed MW. This range and various assumptions about the renewal of the federal tax credit, set to expire in 2016, formed the basis of the scenarios analyzed in the Solar Study.
+
+#### **Cost Factors**
+
+ - The Low Cost scenario is based on the DOE SunShot goal for PV cost reduction and assumed extension of the federal tax credit through 2025. 
+ 
+ - The High Cost scenario is based on long-term historical trends and assumed the federal tax credit would revert to a pre-federal stimulus level following expiration of the current credit in 2016. 
+ 
+ - The most likely scenario, referred to as the Base Case, is based on a survey of experts by the DOE and assumed a moderate reduction of the federal tax credit beyond 2016. The Base Case estimates $2.5 million per installed MW for large-scale systems and $3.1 million per installed MW for small-scale systems.
+ 
+ - The cost of achieving a 5,000 MW goal exceeds the benefits using the Base Case scenario.
+
+ - The cost of PV and the availability of federal tax credits through 2025 are the driving factors of cost in a 5,000 MW goal.
+ 
+#### **Job Impact**
+
+Modeling of the Base Case scenario found that while direct PV jobs would be created, the impact on New York's economy as a whole would be a net negative primarily due to the ratepayer impact.
+
+ - Approximately 2,300 jobs associated directly with PV installation would be created for the installation period through 2025.
+
+ - Economy-wide jobs would be reduced by 750 through 2049 because of a loss of discretionary income that would have supported employment in other sectors in the economy.
+
+ - The Gross State Product (GSP) would be reduced by $3 billion through 2049, representing an annual decrease in GSP of less than 0.1%.
+
+- The Low Cost scenario would lead to a creation of 700 jobs economy-wide through 2049, while the High Cost scenario would lead to a loss of 2,500 jobs.
+
+#### **Environmental Impact**
+
+A 5,000 MW goal would yield the following environmental benefits through 2049:
+
+ - A 4% reduction in fossil fuel consumption equal to 1,100 trillion Btus.
+
+ - A 3% reduction in carbon dioxide (CO2) emissions equal to 47 million tons.
+
+ - A reduction of nitrogen oxides (NOx), which produces smog and acid rain, by 33,000 tons (4%); sulfur dioxide (SO2), which also produces smog and acid rain, by 67,000 tons (10%); and mercury by 120 pounds (3%).
+
+### References
+
+Various artifacts related to this study conducted by NYSERDA can be found below -
+
+ - [Full Report](https://www.nyserda.ny.gov/-/media/Files/Publications/Energy-Analysis/NY-Solar-Study-Report.pdf)
+ - [Executive Summary](https://www.nyserda.ny.gov/-/media/Files/Publications/Energy-Analysis/NY-Solar-Study-executive-summary.pdf)
+ - [Findings and Recommendations](https://www.nyserda.ny.gov/-/media/Files/Publications/Energy-Analysis/NY-Solar-Study-Findings-Recommendations.pdf)
+ - [Presentation on Findings and Recomendations](https://www.nyserda.ny.gov/-/media/Files/Publications/Energy-Analysis/NY-Solar-Study-preview-briefings.pdf)
