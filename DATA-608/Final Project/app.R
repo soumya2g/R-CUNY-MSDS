@@ -70,13 +70,14 @@ proj_county_map$completed_project_count <- round(as.numeric(proj_county_map$comp
 proj_county_map$pipeline_project_count <- round(as.numeric(proj_county_map$pipeline_project_count),0)
 proj_county_map$project_count <- round(as.numeric(proj_county_map$project_count),0)
 
-cats <- c("0-250kW","250-3,500kW","3,500-5,500kW","5,500-9,000kW","9,000-20,000kW","20,000-35,000kW","35,000-50,000kW","> 50,000kW")
+cats <- c("0-250kW","250-1,000kW","1,000-3,500kW","3,500-5,500kW","5,500-9,000kW","9,000-15,000kW",
+          "15,000-20,000kW","20,000-35,000kW","35,000-50,000kW","50,000-100,000kW","> 100,000kW")
 
-proj_county_map$category <- cut(proj_county_map$installed_capacitykW, breaks = c(0,250,3500,5500,9000,20000,35000,50000,Inf), 
-                                labels=c("0-250kW","250-3,500kW","3,500-5,500kW","5,500-9,000kW","9,000-20,000kW",
-                                         "20,000-35,000kW","35,000-50,000kW","> 50,000kW"))
+proj_county_map$category <- cut(proj_county_map$installed_capacitykW, breaks = c(0,250,1000,3500,5500,9000,15000,20000,35000,50000,100000,Inf), 
+                                labels=c("0-250kW","250-1,000kW","1,000-3,500kW","3,500-5,500kW","5,500-9,000kW","9,000-15,000kW",
+                                        "15,000-20,000kW","20,000-35,000kW","35,000-50,000kW","50,000-100,000kW","> 100,000kW"))
 
-proj_county_map$category_count <- cut(proj_county_map$installed_capacitykW, breaks = c(0,250,3500,5500,9000,20000,35000,50000,Inf), 
+proj_county_map$category_count <- cut(proj_county_map$installed_capacitykW, breaks = c(0,250,1000,3500,5500,9000,15000,20000,35000,50000,100000,Inf), 
                                       labels=FALSE)
 
 ### GeoJSON Data for New York
@@ -187,17 +188,20 @@ body <- dashboardBody(
           tabItems(
             tabItem(tabName = "dashboard",
               fluidRow(
+                verbatimTextOutput('mapclick')
+              ),
+              fluidRow(
                 # Dynamic valueBoxes
                 valueBoxOutput("projects"),
                 valueBoxOutput("capacity"),
                 valueBoxOutput("exptd_production")
               ),
               fluidRow(
-                leafletOutput("leafmap",height = 700, width = 1450),
+                leafletOutput("leafmap",height = 700, width = 1450)
               #  plotlyOutput(
               #    "plotMap", height = 900, width = 1500)#,
-                verbatimTextOutput('mapclick')
-              #  textOutput('mapclick')
+              #  verbatimTextOutput('mapclick')#,
+              #  textOutput('dfcheck')
               ),
               # fluidRow(sliderInput(inputId = "year",
               #                      label = "Year:",
@@ -391,11 +395,18 @@ server <- function(input, output) {
     })
   
   ### Declare Reactive Variable for County
-  selectedCounty <- reactiveVal('All')
+  selectedCounty <-reactiveValues(default = 'All')
+  
+  selectedData <- reactiveVal({
+    dfSlice <- header_df %>%
+      dplyr::filter(county == 'All')
+  })
   
   ### Process Clicks/Mouseover events on the Map ######
-  observeEvent(input$leafmap_shape_mouseover,{
-  #  event <- input$leafmap_shape_click
+  observeEvent(
+    # input$leafmap_shape_click,{
+    # event <- input$leafmap_shape_click
+    input$leafmap_shape_mouseover,{
     event <- input$leafmap_shape_mouseover
     if(is.null(event))
     {
@@ -403,46 +414,56 @@ server <- function(input, output) {
     }
     else
     {
-      selectedCounty <- renderPrint(proj_county_map$NAME[proj_county_map$COUNTY == event$id])
+      selectedCounty <- renderText(proj_county_map$NAME[proj_county_map$COUNTY == event$id])
     }
     output$mapclick <- selectedCounty
-    
-  })
+
+ # })
  ############### END of LEAFLET MAP #####################################
   
   #######################################################
-  selectedData <- reactive({
-   # dfSlice <- header_df %>%
-    #  dplyr::filter(county == selectedCounty)
-    header_df[header_df[,"county"] == selectedCounty, ]
-  })
+   selectedData <- reactive({
+     if(selectedCounty() == 'All')
+     {
+       dfSlice <- header_df %>%
+         dplyr::filter(county == 'All')
+     }
+     else
+     {
+      dfSlice <- header_df %>%
+        dplyr::filter(county == selectedCounty())
+     }
+   })
   ##########################################################
   
   ## Thumbnails Calculations ##
   ## 01. Total No. of Projects
   
-  output$projects <- renderValueBox({
+   output$projects <- renderValueBox({
     valueBox(
-      formatC(header_df2$total_projects, format="f", big.mark=",", digits=0), "Number of Projects", icon = icon("thumbs-up", lib = "glyphicon"),
+      formatC(selectedData()$total_projects, format="f", big.mark=",", digits=0), "Number of Projects", icon = icon("thumbs-up", lib = "glyphicon"),
       color = "purple"
     )
-  })
-  
+   })
+
+
   ## 02. Total Installed Capacity
-  output$capacity <- renderValueBox({
-    valueBox(
-      paste0(formatC(header_df2$mwdc_capacity_rating, format="f", big.mark=",", digits=0),"MW"), "Total Capacity(MW DC)", icon = icon("list"),
-      color = "yellow"
-    )
-  })
+   output$capacity <- renderValueBox({
+     valueBox(
+       paste0(formatC(selectedData()$mwdc_capacity_rating, format="f", big.mark=",", digits=0),"MW"), "Total Capacity(MW DC)", icon = icon("list"),
+       color = "yellow"
+     )
+   })
   
   ## 03. Total Expected Production
-  output$exptd_production <- renderValueBox({
-    valueBox(
-      paste0(formatC(header_df2$expected_gwh_annual_production, format="f", big.mark=",", digits=0),"GWh"), "Total Expected Production(GWh)",  icon("cog", lib = "glyphicon"),
-      color = "aqua"
-    )
-  })
+   output$exptd_production <- renderValueBox({
+     valueBox(
+       paste0(formatC(selectedData()$expected_gwh_annual_production, format="f", big.mark=",", digits=0),"GWh"), "Total Expected Production(GWh)",  icon("cog", lib = "glyphicon"),
+       color = "aqua"
+     )
+   })
+  
+ }) # End of Observe Event
   
   ## Panel 1: Bar Chart ##
   output$plot1 <- renderPlotly({
