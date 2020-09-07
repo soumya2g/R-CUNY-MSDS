@@ -1,0 +1,483 @@
+---
+title: "DATA 624 - Homework1 - Timeseries"
+author: "Soumya Ghosh"
+date: "September 05, 2020"
+always_allow_html: yes
+output:
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r warning=FALSE, message=FALSE}
+library(kableExtra)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(RColorBrewer)
+library(GGally)
+library(fpp2)
+
+```
+
+## Forecasting: Principles & Practice
+
+### Section 2.10 - Exercise 1
+
+a) Use the help function to explore what the series gold, woolyrnq and gas represent.
+
+```{r}
+help(gold)
+```
+#### 'gold' Data Description
+Daily morning gold prices in US dollars. 1 January 1985 - 31 March 1989. 
+
+```{r}
+help(woolyrnq)
+```
+#### 'woolyrnq' Data Description
+Quarterly production of woollen yarn in Australia: tonnes. Mar 1965 - Sep 1994. 
+
+```{r}
+help(gas)
+```
+#### 'gas' Data Description
+Australian monthly gas production: 1956-1995.
+
+
+
+b) Use autoplot() to plot each of these in separate plots.
+
+```{r}
+autoplot(gold) + ggtitle('Daily morning gold prices in US dollars. 1 January 1985 - 31 March 1989')
+autoplot(woolyrnq) + ggtitle('Quarterly production of woollen yarn in Australia: tonnes. Mar 1965 - Sep 1994')
+autoplot(gas) + ggtitle('Australian monthly gas production: 1956-1995')
+
+```
+
+c) What is the frequency of each series? Hint: apply the frequency() function. Use which.max() to spot the outlier in the gold series. Which observation was it?
+
+```{r}
+frequency(gold)
+frequency(woolyrnq)
+frequency(gas)
+
+```
+Frequency of **gold** is 1.
+
+Frequency of **woolyrnq** is 4.
+
+Frequency of **gas** is 12.
+
+### Section 2.10 - Exercise 2
+
+Download the file tute1.csv from the book website, open it in Excel (or some other spreadsheet application), and review its contents. You should find four columns of information. Columns B through D each contain a quarterly series, labelled Sales, AdBudget and GDP. Sales contains the quarterly sales for a small company over the period 1981-2005. AdBudget is the advertising budget and GDP is the gross domestic product. All series have been adjusted for inflation.
+
+ - You can read the data into R with the following script:
+
+**tute1 <- read.csv("tute1.csv", header=TRUE)**
+**View(tute1)**
+
+
+```{r}
+tute1 <- read.csv("https://raw.githubusercontent.com/soumya2g/R-CUNY-MSDS/master/DATA-624/Homework1-Timeseries/Data/tute1.csv")
+head(tute1, 20) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+
+- Convert the data to time series
+
+**mytimeseries <- ts(tute1[,-1], start=1981, frequency=4)**
+(The [,-1] removes the first column which contains the quarters as we don't need them now.)
+
+```{r}
+mytimeseries <- ts(tute1[,-1], start=1981, frequency=4)
+head(mytimeseries,20)
+#head(mytimeseries, 20) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+- Construct time series plots of each of the three series
+
+autoplot(mytimeseries, facets=TRUE)
+Check what happens when you don't include **facets=TRUE**.
+
+**Including facets=TRUE**
+
+```{r}
+autoplot(mytimeseries, facets=TRUE)
+```
+
+**Excluding facets=TRUE**
+
+```{r}
+autoplot(mytimeseries)
+```
+
+It is clear that excluding **facets=TRUE** condition makes the 3 time series metrics (Sales, AdBudget & GDP) appear as legends as opposed to a horizontal grid if the option is included.
+
+### Section 2.10 - Exercise 3
+
+Download some monthly Australian retail data from the book website. These represent retail sales in various categories for different Australian states, and are stored in a MS-Excel file.
+
+You can read the data into R with the following script:
+
+**retaildata <- readxl::read_excel("retail.xlsx", skip=1)**
+The second argument (skip=1) is required because the Excel sheet has two header rows.
+
+```{r}
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
+
+head(retaildata, 20) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+Select one of the time series as follows (but replace the column name with your own chosen column):
+
+**myts <- ts(retaildata[,"A3349873A"],frequency=12, start=c(1982,4))**
+  
+```{r}
+myts <- ts(retaildata[,"A3349337W"],frequency=12, start=c(1982,4))
+
+myts
+
+```
+Explore your chosen retail time series using the following functions:
+
+autoplot(), ggseasonplot(), ggsubseriesplot(), gglagplot(), ggAcf()
+
+**Plot1: autoplot()**
+```{r}
+title <- 'Retail Sales for Category = A3349337W'
+autoplot(myts) + ggtitle(title)
+```
+
+**Plot2: ggseasonplot()**
+```{r fig.height=8, fig.width=10}
+ggseasonplot(myts,year.labels=TRUE,year.labels.left = TRUE) +
+  ylab("$ Sales Turnover") +
+  ggtitle("Seasonal plot: Retail Book Website Sales, Timeseries = A3349337W")
+
+```
+**Polar View**
+
+```{r fig.height=10, fig.width=10}
+
+ggseasonplot(myts,polar = TRUE) +
+  ylab("$ Sales Turnover") +
+  ggtitle("Seasonal plot: Retail Book Website Sales, Timeseries = A3349337W")
+```
+**Plot3: ggsubseriesplot()**
+```{r fig.height=8, fig.width=10}
+ggsubseriesplot(myts) +
+  ylab("$ Sales Turnover") +
+  ggtitle("Seasonal subseries plot: Retail Book Website Sales, Timeseries = A3349337W")
+```
+
+**Plot4: gglagplot()**
+```{r fig.height=10, fig.width=10}
+
+gglagplot(myts) + ggtitle(title)
+```
+**Plot5: ggAcf()**
+```{r fig.height=10, fig.width=10}
+ggAcf(myts) + ggtitle(title)
+
+```
+
+
+Can you spot any seasonality, cyclicity and trend? What do you learn about the series?
+
+#### retaildata (Timeseries = "A3349337W"):: Observations
+
+- From the output of the **autoplot()**, it is clear that there is some strong seasonality withing each year along with a positive upward trend.
+- **ggseasonplot()** shows strong seasonal patterns with consistent high sales in Dec.
+- **subseriesplot()** shows a consistent pattern within each month.
+- The **Lagplot()** shows a strong positive linear pattern for most of the lags especially Lag12 showing strong season autocorrelation behavior.
+- From the ACF plot, slow gradual decrease in ACF as the lag increases is due to the trend, and seasonality is reflected by "scalloped" shape.
+
+### Section 2.10 - Exercise 6
+
+Use the following graphics functions: autoplot(), ggseasonplot(), ggsubseriesplot(), gglagplot(), ggAcf() and explore features from the following time series: hsales, usdeaths, bricksq, sunspotarea, gasoline.
+
+Can you spot any seasonality, cyclicity and trend? What do you learn about the series?
+
+
+#### Timeseries1: hsales (Sales of one-family houses)
+Monthly sales of new one-family houses sold in the USA since 1973.
+
+**hsales::Plot1: autoplot()**
+```{r}
+title <- 'Sales of one-family houses in USA (1973-1995)'
+autoplot(hsales, xlab="Year", ylab="Monthly housing sales (millions)") + ggtitle(title)
+```
+
+**hsales::Plot2: ggseasonplot()**
+```{r fig.height=8, fig.width=10}
+
+hsales1 <- window(hsales, start=1973, end = 1983)
+
+ggseasonplot(hsales1,year.labels=TRUE,year.labels.left = TRUE) +
+  ylab("Monthly housing sales (millions)") +
+  ggtitle("Seasonal plot: Sales of new one-family houses, USA (1973-1983)")
+
+```
+
+```{r fig.height=8, fig.width=10}
+hsales2 <- window(hsales, start=1984)
+
+ggseasonplot(hsales2,year.labels=TRUE,year.labels.left = TRUE) +
+  ylab("Monthly housing sales (millions)") +
+  ggtitle("Seasonal plot: Sales of new one-family houses, USA (1984-1995)")
+
+```
+
+**Polar View**
+
+```{r fig.height=10, fig.width=10}
+
+ggseasonplot(hsales,polar = TRUE) +
+  ylab("Monthly housing sales (millions)") +
+  ggtitle("Seasonal plot: Sales of new one-family houses, USA")
+```
+**hsales::Plot3: ggsubseriesplot()**
+```{r fig.height=8, fig.width=10}
+ggsubseriesplot(hsales) +
+  ylab("Monthly housing sales (millions)") +
+  ggtitle("Seasonal subseries plot: Sales of new one-family houses, USA")
+```
+
+**hsales::Plot4: gglagplot()**
+```{r fig.height=10, fig.width=10}
+
+gglagplot(hsales) + ggtitle(title)
+```
+**hsales::Plot5: ggAcf()**
+```{r fig.height=10, fig.width=10}
+ggAcf(hsales) + ggtitle(title)
+
+```
+
+#### hsales:: Observations
+
+- From the output of the **autoplot()**, it is clear that there is some strong seasonality withing each year in housing sales data along with a strong cyclical behavior with a period of 6-10 years. The data doesn't show any trend behavior.
+- For better readability, I have decided to divide the seasonal plot into two different windows - 1973-1983 & 1984-1995. The consistent seasonal pattern observed in both the time windows are - 
+  - Begining (Jan & Feb) and end of the year (Dec), the housing sales are always low.
+  - There is a consistent positive trend of sales increase towards the end of 1st quarter with Sales picking in March. Some of the years like 1977, 1978 and 1986 show a steep increase in sales in March is probably due to US Govet.'s favorable Community Re-investment, Tax Reforms Acts and policies etc. (Source - [Wikipedia](https://en.wikipedia.org/wiki/Timeline_of_the_United_States_housing_bubble))  
+  - A consistent upward trend in house prices towards the months of August and October is also observable.
+- The **Lagplot()** shows a strong positive linear pattern for Lag1 and Lag2 
+- From the ACF, the seasonality in the data is clearly visible from r1 to r12
+
+
+#### Timeseries2: usdeaths (Accidental deaths in USA)
+
+**usdeaths::Plot1: autoplot()**
+```{r}
+title <- 'Monthly accidental deaths in USA (1973-1978)'
+autoplot(usdeaths, xlab="Year") + ggtitle(title)
+```
+
+**usdeaths::Plot2: ggseasonplot()**
+```{r fig.height=8, fig.width=10}
+
+ggseasonplot(usdeaths,year.labels=TRUE,year.labels.left = TRUE) +
+  ylab("No. of Deaths") +
+  ggtitle("Seasonal plot: US Accidental Deaths")
+
+```
+**Polar View**
+
+```{r fig.height=10, fig.width=10}
+
+ggseasonplot(usdeaths,polar = TRUE) +
+  ylab("No. of Deaths") +
+  ggtitle("Seasonal plot: US Accidental Deaths")
+```
+**usdeaths::Plot3: ggsubseriesplot()**
+```{r fig.height=8, fig.width=10}
+ggsubseriesplot(usdeaths) +
+  ylab("No. of Deaths") +
+  ggtitle("Seasonal subseries plot: US Accidental Deaths")
+```
+
+**usdeaths::Plot4: gglagplot()**
+```{r fig.height=10, fig.width=10}
+
+gglagplot(usdeaths) + ggtitle(title)
+```
+**usdeaths::Plot5: ggAcf()**
+```{r fig.height=10, fig.width=10}
+ggAcf(usdeaths) + ggtitle(title)
+```
+
+#### usadeaths:: Observations
+
+- From the output of the **autoplot()**, it is clear that there is very strong seasonality withing each year in usadeaths data set.
+- There is no clear trend observable in the accidental death for the limited years (1973-78) of data included in data set.
+- There is a very consistent seasonal pattern of June,July & August recording highest death rate. This is most likely due to increasing travel pattern during summer with more people hitting the road for vacation etc. Similar high accidental death pattern can be observerved during Christmas,New Year (Dec and Jan) which could also be due to heavy snowfall etc.
+- Feb is consistent with lowest no. of accidental deaths. 
+- The **Lagplot()** shows a very strong autocrrelation with positive linear pattern for Lag12. Lag6 and Lag7 sow somehwat negative autocrrelation. - From the ACF, the seasonality in the data is clearly visible with r1 highers than the other lags. Peaks and troughs are consistently 12 months apart.
+
+#### Timeseries3: bricksq (Australian Quarterly clay brick production)
+
+**bricksq::Plot1: autoplot()**
+```{r}
+title <- 'Australian Quarterly clay brick production (1956-1994)'
+autoplot(bricksq, xlab="Year") + ggtitle(title)
+```
+
+**bricksq::Plot2: ggseasonplot()**
+```{r fig.height=8, fig.width=10}
+
+ggseasonplot(bricksq,year.labels=TRUE,year.labels.left = TRUE) +
+  ylab("Production Units") +
+  ggtitle("Seasonal plot: Quarterly clay bricks Production")
+
+```
+**Polar View**
+
+```{r fig.height=10, fig.width=10}
+
+ggseasonplot(bricksq,polar = TRUE) +
+  ylab("Production Units") +
+  ggtitle("Seasonal plot: Quarterly clay bricks Production")
+```
+**bricksq::Plot3: ggsubseriesplot()**
+```{r fig.height=8, fig.width=10}
+ggsubseriesplot(bricksq) +
+  ylab("Production Units") +
+  ggtitle("Seasonal subseries plot: Quarterly clay bricks Production")
+```
+
+**bricksq::Plot4: gglagplot()**
+```{r fig.height=10, fig.width=10}
+
+gglagplot(bricksq) + ggtitle(title)
+```
+**bricksq::Plot5: ggAcf()**
+```{r fig.height=10, fig.width=10}
+ggAcf(bricksq) + ggtitle(title)
+```
+
+#### bricksq:: Observations
+
+- From the output of the **autoplot()**, it looks like there is cyclic behavior with period of 8-10 years with an upward positive trend for first 20 years. 
+- **ggsubseriesplot()** shows a consistent pattern of change in seasonality within each quarter.
+- The **Lagplot()** shows a very consistent strong autocorrelation with positive linear pattern for mostly all the lags (Lag1 to Lag9).
+- From the ACF plot, slow gradual decrease in ACF as the lag increases is due to the trend, and seasonality is reflected by "scalloped" shape.
+
+#### Timeseries4: sunspotarea (Annual average sunspot area (1875-2015))
+Annual averages of the daily sunspot areas (in units of millionths of a hemisphere) for the full sun. Sunspots are magnetic regions that appear as dark spots on the surface of the sun. The Royal Greenwich Observatory compiled daily sunspot observations from May 1874 to 1976. Later data are from the US Air Force and the US National Oceanic and Atmospheric Administration. The data have been calibrated to be consistent across the whole history of observations.
+
+**sunspotarea::Plot1: autoplot()**
+```{r}
+title <- 'Annual average sunspot area (1875-2015)'
+autoplot(sunspotarea, xlab="Year") + ggtitle(title)
+```
+
+**sunspotarea::Plot2: ggseasonplot()**
+```{r fig.height=8, fig.width=10}
+
+#ggseasonplot(sunspotarea,year.labels=TRUE,year.labels.left = TRUE) +
+#  ylab("Units of millionths of a hemisphere") +
+#  ggtitle("Seasonal plot: Annual average sunspot area (1875-2015)")
+
+```
+**Polar View**
+
+```{r fig.height=10, fig.width=10}
+
+#ggseasonplot(sunspotarea,polar = TRUE) +
+#  ylab("Units of millionths of a hemisphere") +
+#  ggtitle("Seasonal plot: Annual average sunspot area (1875-2015)")
+```
+**sunspotarea::Plot3: ggsubseriesplot()**
+```{r fig.height=8, fig.width=10}
+#ggsubseriesplot(sunspotarea) +
+#  ylab("Units of millionths of a hemisphere") +
+#  ggtitle("Seasonal subseries plot: Annual average sunspot area (1875-2015)")
+```
+
+**sunspotarea::Plot4: gglagplot()**
+```{r fig.height=10, fig.width=10}
+
+gglagplot(sunspotarea) + ggtitle(title)
+```
+**sunspotarea::Plot5: ggAcf()**
+```{r fig.height=10, fig.width=10}
+ggAcf(sunspotarea)  + ggtitle(title)
+
+```
+
+#### sunspotarea:: Observations
+
+- From the output of the **autoplot()**, a consistent cyclic behavior with period of 11-12 years is clearly visible. Also, the data doesn't show any trend or seasonal behavior.
+- Because the data is annual, it cannot exhibit seasonality, thus the ggseasonplot() and ggsubseriesplot() functions return errors.
+- The **Lagplot()** doesn't show any strong positive or negative linear autocorrelation pattern for mostly all the lags.
+- ACF plot shows consistent Peaks and troughs consistently spaced 11 years apart confirming strong cyclical pattern.
+
+
+#### Timeseries5: gasoline (US finished motor gasoline product supplied)
+
+Weekly data beginning 2 February 1991, ending 20 January 2017. Units are "million barrels per day".
+
+**gasoline::Plot1: autoplot()**
+```{r}
+title <- 'US finished motor gasoline product supplied (1991-2017)'
+autoplot(gasoline, xlab="Year") + ggtitle(title)
+```
+
+**gasoline::Plot2: ggseasonplot()**
+```{r fig.height=8, fig.width=10}
+
+ggseasonplot(gasoline,year.labels=TRUE,year.labels.left = TRUE) +
+  ylab("million barrels per day") +
+  ggtitle("Seasonal plot: US finished motor gasoline product supplied")
+
+```
+**Polar View**
+
+```{r fig.height=10, fig.width=10}
+
+ggseasonplot(gasoline,polar = TRUE) +
+  ylab("million barrels per day") +
+  ggtitle("Seasonal plot: US finished motor gasoline product supplied")
+```
+**gasoline::Plot3: ggsubseriesplot()**
+```{r fig.height=8, fig.width=10}
+#(gasoline) +
+#  ylab("million barrels per day") +
+#  ggtitle("Seasonal subseries plot: US finished motor gasoline product supplied")
+```
+
+**gasoline::Plot4: gglagplot()**
+```{r fig.height=10, fig.width=10}
+
+gglagplot(gasoline) + ggtitle(title)
+```
+**gasoline::Plot5: ggAcf()**
+```{r fig.height=10, fig.width=10}
+ggAcf(gasoline) + ggtitle(title)
+```
+
+#### gasoline:: Observations
+
+- **autoplot()** shows a upward positive trend, and an apparently seasonal behavior. Although, the presence of cyclic behavior is not clear from this plot
+- **ggseasonplot()** confirms the presence of seasonal behavior in the dataset.
+- The **Lagplot()** for all lag periods show strong positive linear autocorrelation pattern.
+- Slow gradual decrease in the ACF plot as the lag increases is due to the trend, and seasonality is also reflected shape of the ACF plot.
