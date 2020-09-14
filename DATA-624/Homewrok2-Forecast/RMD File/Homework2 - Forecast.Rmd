@@ -1,0 +1,306 @@
+---
+title: "DATA 624 - Homework2 - Forecast"
+author: "Soumya Ghosh"
+date: "September 07, 2020"
+always_allow_html: yes
+output:
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r warning=FALSE, message=FALSE}
+library(kableExtra)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(RColorBrewer)
+library(GGally)
+library(fpp2)
+library(grid)
+library(gridExtra)
+#library(ggpubr)
+
+```
+
+## Forecasting: Principles & Practice
+
+### Section 3.7 - Exercise 1
+
+For the following series, find an appropriate Box-Cox transformation in order to stabilise the variance.
+
+ -  usnetelec
+ -  usgdp
+ -  mcopper
+ -  enplanements
+
+#### DataSet: usnetelec
+
+**Description:** Annual US net electricity generation (billion kwh) for 1949-2003
+
+```{r fig.height=6,fig.width=12, size=12}
+# Timeseries plot before Transformation:
+plot <- autoplot(usnetelec,ylab="billion kwh",xlab="Year") + ggtitle("Annual US net electricity generation")
+
+lambda <- BoxCox.lambda(usnetelec)
+cat('BoxCox Transofrmation Parameter, Lambda:', lambda)
+
+# Timeseries plot after applying BoxCox Transformation:
+plot_boxcox <- autoplot(BoxCox(usnetelec,lambda),ylab="billion kwh",xlab="Year") + ggtitle("Annual US net electricity generation (w/ BoxCox Transformation)")
+
+grid.arrange(plot,plot_boxcox, ncol=2) 
+
+```
+
+#### DataSet: usgdp
+
+**Description:** Quarterly US GDP. 1947:1 - 2006.1.
+
+```{r fig.height=6,fig.width=12}
+# Timeseries plot before Transformation:
+plot <- autoplot(usgdp,xlab="Year",ylab="US Dollars") + ggtitle("Quarterly US GDP")
+
+lambda <- BoxCox.lambda(usgdp)
+cat('BoxCox Transofrmation Parameter, Lambda:', lambda)
+
+# Timeseries plot after applying BoxCox Transformation:
+plot_boxcox <- autoplot(BoxCox(usgdp,lambda),xlab="Year",ylab="US Dollars") + ggtitle("Quarterly US GDP (w/ BoxCox Transformation)")
+
+grid.arrange(plot,plot_boxcox, ncol=2) 
+```
+
+#### DataSet: mcopper
+
+**Description:** Monthly copper prices. Copper, grade A, electrolytic wire bars/cathodes,LME,cash (pounds/ton) Source: UNCTAD 
+
+```{r fig.height=6,fig.width=12}
+# Timeseries plot before Transformation:
+plot <- autoplot(mcopper,ylab="pounds per ton",xlab="Year") + ggtitle("Monthly copper price")
+
+lambda <- BoxCox.lambda(mcopper)
+cat('BoxCox Transofrmation Parameter, Lambda:', lambda)
+
+# Timeseries plot after applying BoxCox Transformation:
+plot_boxcox <- autoplot(BoxCox(mcopper,lambda),ylab="pounds per ton",xlab="Year") + ggtitle("Monthly copper price (w/ BoxCox Transformation)")
+
+grid.arrange(plot,plot_boxcox, ncol=2) 
+```
+
+#### DataSet: enplanements
+
+**Description:** "Domestic Revenue Enplanements (millions): 1996-2000. SOURCE: Department of Transportation, Bureau of Transportation Statistics, Air Carrier Traffic Statistic Monthly.
+
+```{r fig.height=6,fig.width=12}
+# Timeseries plot before Transformation:
+plot <- autoplot(enplanements,ylab="millions",xlab="Year") + ggtitle("US domestic enplanements")
+
+lambda <- BoxCox.lambda(enplanements)
+cat('BoxCox Transofrmation Parameter, Lambda:', lambda)
+
+# Timeseries plot after applying BoxCox Transformation:
+plot_boxcox <- autoplot(BoxCox(enplanements,lambda),ylab="millions",xlab="Year") + ggtitle("US domestic enplanements (w/ BoxCox Transformation)")
+
+grid.arrange(plot,plot_boxcox, ncol=2) 
+```
+
+### Section 3.7 - Exercise 2
+
+Q. Why is a Box-Cox transformation unhelpful for the cangas data?
+
+#### DataSet: cangas
+
+**Description:** Monthly Canadian gas production, billions of cubic metres, January 1960 - February 2005.
+
+```{r fig.height=6,fig.width=12}
+# Timeseries plot before Transformation:
+plot <- autoplot(cangas,ylab="billion cubic metres",xlab="Year") + ggtitle("Monthly Canadian gas production")
+
+lambda <- BoxCox.lambda(cangas)
+cat('BoxCox Transofrmation Parameter, Lambda:', lambda)
+
+# Timeseries plot after applying BoxCox Transformation:
+plot_boxcox <- autoplot(BoxCox(cangas,lambda),ylab="billion cubic metres",xlab="Year") + ggtitle("Monthly Canadian gas production (w/ BoxCox Transformation)")
+
+grid.arrange(plot,plot_boxcox, ncol=2) 
+```
+Analyzing the original plot for **cangas** data, below variability in seasonal behavior can be observed -
+
+ - Seasonal variability was smaller for years before 1975
+ - Increasing seasonal variability can be observed after 1975, and reached highest around 1985
+ - Seasonal variability began to decrease significantly after 1990
+
+Comparing the two plots above for **cangas** data set, it doesn't look like BoxCox transformation has helped in making the seasonal variation more uniform across time periods. Hence applying Boxcox transformation is not going to simplify the forecasting model for this data set.  
+
+
+### Section 3.7 - Exercise 3
+
+Q. What Box-Cox transformation would you select for your retail data (from Exercise 3 in Section 2.10)?
+
+#### DataSet: Retail
+
+```{r fig.height=10, fig.width=10}
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
+
+head(retaildata, 20) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+Select one of the time series as follows (but replace the column name with your own chosen column):
+
+**myts <- ts(retaildata[,"A3349873A"],frequency=12, start=c(1982,4))**
+
+I have selected **"A3349337W"** as the timeseries from the retail data set for this exercise.
+  
+```{r}
+myts <- ts(retaildata[,"A3349337W"],frequency=12, start=c(1982,4))
+
+myts
+
+```
+
+```{r fig.height=6,fig.width=12}
+title <- 'Retail Sales for Category = A3349337W'
+
+# Timeseries plot before Transformation:
+plot <- autoplot(myts,ylab="$ Sales Turnover",xlab="Year") + ggtitle(title)
+
+lambda <- BoxCox.lambda(myts)
+cat('BoxCox Transofrmation Parameter, Lambda:', lambda)
+
+# Timeseries plot after applying BoxCox Transformation:
+plot_boxcox <- autoplot(BoxCox(myts,lambda),ylab="$ Sales Turnover",xlab="Year") + ggtitle(paste(title," (w/ BoxCox Transformation)"))
+
+grid.arrange(plot,plot_boxcox, ncol=2) 
+```
+
+
+### Section 3.7 - Exercise 8
+
+For your retail time series (from Exercise 3 in Section 2.10):
+
+a) Split the data into two parts using - 
+**myts.train <- window(myts, end=c(2010,12))**
+**myts.test <- window(myts, start=2011)**
+
+```{r}
+myts.train <- window(myts, end=c(2010,12))
+myts.test <- window(myts, start=2011)
+```
+
+b) Check that your data have been split appropriately by producing the following plot - 
+**autoplot(myts) +**
+  **autolayer(myts.train, series="Training") +**
+  **autolayer(myts.test, series="Test")**
+  
+```{r fig.height=6,fig.width=12}
+autoplot(myts) +
+  autolayer(myts.train, series="Training") +
+  autolayer(myts.test, series="Test")
+```
+
+c) Calculate forecasts using snaive applied to myts.train - 
+**fc <- snaive(myts.train)**
+
+```{r fig.height=6,fig.width=12}
+fc <- snaive(myts.train)
+
+fc %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+# Calculating Forecast applying BoxCox transformation
+fc1 <- snaive(myts.train, lambda = lambda)
+
+#fc1 %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+# Calculating Forecast applying BoxCox transformation
+fc2 <- snaive(myts.train, lambda = lambda, biasadj = TRUE)
+
+autoplot(myts.train) +
+  autolayer(fc, series="Without Transformation") +
+  autolayer(fc1, series="Simple Back Transformation", PI=FALSE) +
+  autolayer(fc2, series="Bias Adjusted", PI=FALSE) +
+  guides(colour=guide_legend(title="Forecast"))
+
+```
+
+d) Compare the accuracy of your forecasts against the actual values stored in myts.test - 
+**accuracy(fc,myts.test)**
+
+```{r}
+accuracy(fc,myts.test)
+
+# With BoxCox Transformation
+accuracy(fc1,myts.test)
+```
+
+e) Check the residuals - 
+**checkresiduals(fc)**
+
+Q. Do the residuals appear to be uncorrelated and normally distributed?
+
+```{r fig.width=12}
+checkresiduals(fc)
+```
+
+#### Analysis of Residuals:
+
+- Time plot shows that residuals show variations, residual values are not mostly zeros and does not show any seasonal patter.
+- From the ACF plot, residuals seem to have high positive autocorrelation between r1 to r10. So based on Box-Pierce test, Q statistic ($Q=T\sum _{ k=1 }^{ h }{ { { r }_{ k } }^{ 2 } }$) using h=10 for non-seasonal residual data, seems to have a relatively high value showing strong correlation amongst residuals.
+- From the Histogram, it is clear that the mean of the residuals is not zero and residuals are also not normally distributed.
+- Based on the outpout of Ljung-Box test, ${ Q }^{ * }$ statistic (${ Q }^{ * }=T(T+2)\sum _{ k=1 }^{ h }{ { { { (T-k) }^{ -1 }r }_{ k } }^{ 2 } }$) shows significantly high value with very small p-value. This suggests that the residual autocorrelations DO NOT come from white noise series. Hence it can be concluded that the residuals show sufficient correlation.
+
+
+f) Q. How sensitive are the accuracy measures to the training/test split?
+
+The approach to gauge sensitivity of accuracy measures to the training/test split would be to iterate over multiple years as splitting point and verify the impact on the measures.
+
+```{r fig.height=6,fig.width=12}
+calcAccuracy <- function(year){
+  train <- window(myts, end=c(year, 12))
+  test <- window(myts, start=year+1)
+  model_accuracy <- accuracy(snaive(train), test)
+  return(model_accuracy)
+}
+
+splitYears <- c(2005:2011)
+
+modelAccuracyDF <- data.frame()
+for (year in splitYears){
+  currentAccuracy <- calcAccuracy(year)
+  testRow <- data.frame(t(currentAccuracy[2,]))
+  modelAccuracyDF <- rbind(modelAccuracyDF, testRow)
+}
+row.names(modelAccuracyDF) <- paste('Dec',splitYears,sep = '-')
+modelAccuracyDF <- tibble::rownames_to_column(modelAccuracyDF, "Split_Period")
+modelAccuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+
+ggplot(modelAccuracyDF,aes(x=Split_Period)) +
+  geom_line(aes(y = RMSE, color = "blue"),group=1,size=2 ) +
+  geom_line(aes(y = MAPE, color = "red"),group=1,size=2) +
+  geom_line(aes(y = MAE, color = "green"),group=1,size=2) +
+  geom_line(aes(y = MASE, color = "orange"),group=1,size=2) +
+  xlab('Train/Test Split Period') +
+  ylab('Measure Value') +
+  scale_color_discrete(name = "Accuracy Measures", labels = c("RMSE","MAPE","MAE","MASE")) +
+  ggtitle("Train/Test Split Accuracy Measures Sensitivity")
+
+
+
+```
+
+
+From the table and chart above, we can clearly see that choice of Training/Test split point impacts the accuracy measures for the test data sets. Also, it appears that Dec'2011 is the best choice for the split with lowest RMSE, MAE, MAPE and MASE etc. values. 
