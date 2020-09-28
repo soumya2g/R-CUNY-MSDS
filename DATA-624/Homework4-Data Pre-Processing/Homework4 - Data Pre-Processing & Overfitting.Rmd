@@ -1,0 +1,420 @@
+---
+title: "DATA 624 - Homework4 - Data Pre-Processing & Overfitting"
+author: "Soumya Ghosh"
+date: "September 20, 2020"
+always_allow_html: yes
+output:
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r warning=FALSE, message=FALSE}
+library(kableExtra)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(TSstudio)
+library(RColorBrewer)
+library(GGally)
+library(grid)
+library(gridExtra)
+library(mlbench)
+library(psych)
+library(cowplot)
+library(corrplot)
+library(caret)
+library(geoR)
+library(reshape)
+library(naniar)
+library(mice)
+library(DMwR)
+#library(missForest)
+```
+
+## Applied Predictive Modeling
+
+### Exercise 3.1
+
+The UC Irvine Machine Learning Repository6 contains a data set related to glass identification. The data consist of 214 glass samples labeled as one of seven class categories. There are nine predictors, including the refractive index and percentages of eight elements: Na, Mg, Al, Si, K, Ca, Ba, and Fe. 
+
+
+#### Data Description:
+
+A data frame with 214 observation containing examples of the chemical analysis of 7 different types of glass. This data set can be leveraged to forecast the type of class on basis of the chemical analysis. The study of classification of types of glass was motivated by criminological investigation. At the scene of the crime, the glass left can be used as evidence (if it is correctly identified!).
+
+**Data Format:**
+A data frame with 214 observations on 10 variables:
+
+```{r}
+data(Glass)
+str(Glass)
+
+```
+
+**Preview of the Data:**
+
+```{r}
+
+
+Glass %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+(a) Using visualizations, explore the predictor variables to understand their distributions as well as the relationships between predictors.
+
+#### Descriptive Summary Statistics of the Predictors:
+
+```{r}
+# Excluding the classifier target variable from the Glass data frame to focus on predictors only
+
+GlassPredsDF <- Glass[,-10]
+
+stat_desc <- function(df){
+df %>% 
+    describe() %>%
+    kbl() %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+    scroll_box(width="100%",height="350px")
+}
+
+stat_desc(GlassPredsDF)
+
+```
+
+I have use the **describe()** method of the **psych** package to review all the baseline statistical metrics for the predictors. From the table above, it can be noted that chemicals like Fe, Ba and K has near zero mean values and there is notable skewness in data for many of the predictors.   
+
+#### Descriptive Statistical Plots
+
+**Box Plot:**
+
+```{r fig.height=6, fig.width=8, warning=FALSE, message=FALSE}
+gb1 <- ggplot(data = GlassPredsDF, aes(y = RI)) + geom_boxplot()
+gb2 <- ggplot(data = GlassPredsDF, aes(y = Na)) + geom_boxplot()
+gb3 <- ggplot(data = GlassPredsDF, aes(y = Mg)) + geom_boxplot()
+gb4 <- ggplot(data = GlassPredsDF, aes(y = Al)) + geom_boxplot()
+gb5 <- ggplot(data = GlassPredsDF, aes(y = Si)) + geom_boxplot()
+gb6 <- ggplot(data = GlassPredsDF, aes(y = K)) + geom_boxplot()
+gb7 <- ggplot(data = GlassPredsDF, aes(y = Ca)) + geom_boxplot()
+gb8 <- ggplot(data = GlassPredsDF, aes(y = Ba)) + geom_boxplot()
+gb9 <- ggplot(data = GlassPredsDF, aes(y = Fe)) + geom_boxplot()
+
+title <- ggdraw() +
+  draw_label(
+    "Box Plots of Glass Predictors",
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 7)
+  )
+
+plot_row <- plot_grid(gb1, gb2, gb3, gb4, gb5, gb6, gb7, gb8, gb9, labels = colnames(GlassPredsDF), label_size = 12)
+
+plot_grid(
+  title, plot_row,
+  ncol = 1,
+  # rel_heights values control vertical title margins
+  rel_heights = c(0.1, 1)
+)
+```
+
+#### Density Plots
+
+```{r fig.height=7, fig.width=7}
+GlassPredsDF %>% 
+  gather(variable, value) %>%
+  ggplot(., aes(value)) + 
+  geom_density(fill = "dodgerblue4", color="dodgerblue4") + 
+  facet_wrap(~variable, scales ="free", ncol = 4) +
+  labs(x = element_blank(), y = element_blank())
+
+```
+
+#### Correlation Plot
+
+```{r fig.height=6, fig.width=6}
+
+corrMatrix <- round(cor(GlassPredsDF),4)
+
+corrMatrix %>% corrplot(., method = "color", outline = T, addgrid.col = "darkgray", order="hclust", addrect = 4, rect.col = "black", rect.lwd = 5,cl.pos = "b", tl.col = "indianred4", tl.cex = 1.0, cl.cex = 1.0, addCoef.col = "white", number.digits = 2, number.cex = 0.8, col = colorRampPalette(c("darkred","white","dodgerblue4"))(100))
+
+```
+
+#### Pairwise Plot
+
+```{r fig.retina=1, fig.width=15, fig.height=15}
+pairs.panels(GlassPredsDF, 
+             method = "pearson", # correlation method
+             hist.col = "dodgerblue4",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+
+```
+From the above plot, it can be observed that Refractive Index (RI) and % of Calcium content (Ca) has a high correlation score of 0.81. 
+
+(b) Do there appear to be any outliers in the data? Are any predictors skewed?
+
+#### Observations:
+
+ - From the Box plot of predictors, it can be observed that apart from % of Mg content, all other predictors have quite a few outliers in the data.
+ - For majority of the records,% content of Barium (Ba) are recorded as zeros. It's hard to say whether these are misssing values or truly recorded to be absent in most of the observations. So due to ~0 mean, records with Ba content > 0 are appearing as outliers.
+ - Similar to Barium (Ba), Iron (Fe) and Potassium (K) % have similar pattern.
+ - From the density plot of the predictors, it can be observed that majority of the predictors have some degree of skewness -
+  - Ba, Ca, Fe, K and RI have right skewness
+  - Mg and Si have little bit of left skewness
+
+
+(c) Are there any relevant transformations of one or more predictors that might improve the classification model?
+
+```{r}
+trans <- preProcess(GlassPredsDF, method = c("BoxCox", "center", "scale"))
+
+trans
+```
+#### Transformation Deterination for Predictors:
+
+Below is an analysis of each predictor and applicable transformations. Wher applicable (values >0), I have used the **boxcoxfit()** function from **geoR** package teh determine the value of lambda.
+
+**RI:**
+
+```{r}
+boxcoxfit(GlassPredsDF$RI)
+```
+
+The suggested value of lambda for RI is -5.
+
+```{r fig.width=7, fig.height=3, message=FALSE}
+GlassPredsDF$RI_Trans <- (GlassPredsDF$RI^(-5) - 1)/(-5)
+
+plot1 <-ggplot(GlassPredsDF, aes(x=RI)) + geom_histogram(alpha=0.5) + ggtitle("RI Original")
+plot2 <-ggplot(GlassPredsDF, aes(x=RI_Trans)) + geom_histogram(alpha=0.5) + ggtitle("RI Transformed")
+
+grid.arrange(plot1,plot2, ncol=2) 
+```
+
+
+**Al:**
+
+```{r}
+boxcoxfit(GlassPredsDF$Al)
+```
+
+The suggested value of lambda for Al is 0.4872856. I am going to make a square root transformation for Al
+
+```{r fig.width=7, fig.height=3, message=FALSE}
+GlassPredsDF$Al_Trans <- (GlassPredsDF$Al^(0.5) - 1)/(0.5)
+
+plot1 <-ggplot(GlassPredsDF, aes(x=Al)) + geom_histogram(alpha=0.5) + ggtitle("Al Original")
+plot2 <-ggplot(GlassPredsDF, aes(x=Al_Trans)) + geom_histogram(alpha=0.5) + ggtitle("Al Transformed")
+
+grid.arrange(plot1,plot2, ncol=2) 
+```
+
+
+
+**Fe:**
+
+Considering the highly left skewed data, I am going to do a natural log transformation. 
+
+
+```{r fig.width=7, fig.height=3, message=FALSE}
+GlassPredsDF$Fe_Trans <- log(GlassPredsDF$Fe) 
+
+plot1 <-ggplot(GlassPredsDF, aes(x=Fe)) + geom_histogram(alpha=0.5) + ggtitle("Fe Original")
+plot2 <-ggplot(GlassPredsDF, aes(x=Fe_Trans)) + geom_histogram(alpha=0.5) + ggtitle("Fe Transformed")
+
+grid.arrange(plot1,plot2, ncol=2) 
+```
+
+
+
+**Ba:**
+
+Considering the highly left skewed data, I am going to do a natural log transformation. 
+
+
+```{r fig.width=7, fig.height=3, message=FALSE}
+GlassPredsDF$Ba_Trans <- log(GlassPredsDF$Ba) 
+
+plot1 <-ggplot(GlassPredsDF, aes(x=Ba)) + geom_histogram(alpha=0.5) + ggtitle("Ba Original")
+plot2 <-ggplot(GlassPredsDF, aes(x=Ba_Trans)) + geom_histogram(alpha=0.5) + ggtitle("Ba Transformed")
+
+grid.arrange(plot1,plot2, ncol=2) 
+```
+
+**K:**
+
+Considering the highly left skewed data, I am going to do a natural log transformation. 
+
+
+```{r fig.width=7, fig.height=3, message=FALSE}
+GlassPredsDF$K_Trans <- log(GlassPredsDF$K) 
+
+plot1 <-ggplot(GlassPredsDF, aes(x=K)) + geom_histogram(alpha=0.5) + ggtitle("K Original")
+plot2 <-ggplot(GlassPredsDF, aes(x=K_Trans)) + geom_histogram(alpha=0.5) + ggtitle("K Transformed")
+
+grid.arrange(plot1,plot2, ncol=2) 
+```
+
+
+### Exercise 3.2
+The soybean data can also be found at the UC Irvine Machine Learning Repository. Data were collected to predict disease in 683 soybeans. The 35 predictors are mostly categorical and include information on the environmental conditions (e.g., temperature, precipitation) and plant conditions (e.g., left spots, mold growth). The outcome labels consist of 19 distinct classes.
+
+#### Data Description:
+
+There are 19 classes, only the first 15 of which have been used in prior work. The folklore seems to be that the last four classes are unjustified by the data since they have so few examples. There are 35 categorical attributes, some nominal and some ordered. The value "dna" means does not apply. The values for attributes are encoded numerically, with the first value encoded as "0," the second as "1," and so forth.
+
+
+**Data Format:**
+
+A data frame with 683 observations on 36 variables. There are 35 categorical attributes, all numerical and a nominal denoting the class:
+
+```{r}
+data(Soybean)
+str(Soybean)
+
+```
+
+**Preview of the Data:**
+
+```{r}
+Soybean %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+```
+
+
+(a) Investigate the frequency distributions for the categorical predictors. Are any of the distributions degenerate in the ways discussed earlier in this chapter?
+
+
+#### Frequency Distribution Histogram Plots
+
+```{r fig.height=10, fig.width=10}
+Soybean %>% 
+  gather(variable, value) %>%
+  ggplot(., aes(value)) + 
+  geom_histogram(alpha=0.5, stat = "count", color="dodgerblue4", fill = "dodgerblue4") +
+  facet_wrap(~variable, scales ="free", ncol = 4) +
+  labs(x = element_blank(), y = element_blank()) +
+  ggtitle("Frequency Distribution Plot for Class variable + Categorical Predictor")
+
+```
+
+Based on the frequency distribution histogram plot above, it appears that there are few categorical predictors demonstrating degenrate distribution. These predictors include -
+
+  - leaf.malf
+  - leaf.shread
+  - leaves
+  - lodging
+  - mold.growth
+  - mycelium
+  - sclerotia
+  
+#### Identifying Near Zero Variance Predictors  
+
+The caret package function nearZeroVar() will return the column numbers of any predictors that fulfill the conditions of degenrate distributions -
+  
+```{r}
+## Determine a predictor set without highly sparse and unbalanced distributions:
+isNZV <- nearZeroVar(Soybean)
+colnames(Soybean)[isNZV]
+```
+
+NZV predictors as identified above can be safely removed from the model toward better prediction and model simplification. 
+
+(b) Roughly 18% of the data are missing. Are there particular predictors that are more likely to be missing? Is the pattern of missing data related to the classes?
+
+### Missing Value Analysis
+
+Below is an analysis of predictors with NA values. 
+
+```{r}
+## Counts of missing data per feature
+train_na_df <- data.frame(apply(Soybean, 2, function(x) length(which(is.na(x)))))
+train_na_df1 <- data.frame(apply(Soybean, 2,function(x) {sum(is.na(x)) / length(x) * 100}))
+
+train_na_df <- cbind(Feature = rownames(train_na_df), train_na_df, train_na_df1)
+colnames(train_na_df) <- c('Feature Name','No. of NA Recocrds','Percentage of NA Records')
+rownames(train_na_df) <- NULL
+
+
+train_na_df%>% filter(`No. of NA Recocrds` != 0) %>% arrange(desc(`No. of NA Recocrds`)) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+Based on above analysis, it looks like there are certain predictors which are more likely to be missing. Some of these most missing value predictors are - **hail, sever, seed.tmt, lodging, germ** etc.
+
+```{r fig.height=7, fig.width=8}
+gg_miss_fct(x = Soybean, fct = Class) + labs(title = "NA in Soybean Predictors and Disease Class")
+```
+
+From the above plot, there seems to be a pattern of missing data related to classses. For example, out of 19 prediction classes, only 5 classes - **2-4-d-injury, cyst-nematode, herbiside-injury, diaporthe-pod-&-stem-blight & phytopthora-rot** seem to have predictors with missing values.  
+
+(c) Develop a strategy for handling missing data, either by eliminating predictors or imputation.
+
+In order to optimize the prediction model, we need to re-evaluate the list of predictors that need to be part of the model and also handle the missing values by deploying appropriate imputation techniques.
+
+#### Removing Near Zero Variance Predictors
+
+It can also be noted that the **3 Near Zero Variance** predictors **("leaf.mild", "mycelium" &  "sclerotia")** identified in the first part of the problem also showed up in the list of missing value predictors. So, as a first step these predictors can be removed from the data set.
+
+```{r}
+SoybeanTrans <- Soybean %>% select(-c("leaf.mild", "mycelium","sclerotia"))
+
+```
+
+#### Imputation Strategy:
+
+For imputation of the missing data for the  categorical predictors, various methods can be adopted. Below are some of the strategies that can be followed -
+
+ - Ignore observation which can cause loosing out on some of the information present in original data. This method typically works well for large data sets.
+ - Replace by most frequent value. This is simplistic approach but may not yield the best possible result.
+ - Replace using an algorithm like KNN using the neighbours. The advantage of this approach is that the imputed data are confined
+to be within the range of the training set values. The disadvantage of this approach is that the entire training set is required every time a missing value needs to be imputed. But in general, nearest neighbor approach is fairly robust to the tuning parameters, as well as the amount of missing data.
+ - Leveraging the training data set, predict the observation using a multiclass predictor.
+
+#### K Nearest Neighbor Technique
+
+I have adopted the KNN approach for imputation for the current categorical data set using the **knnImputation()** fruntion from **DMwR** package. I am using k=10 as a tuning parameter.
+
+
+```{r}
+#data <- prodNA(SoybeanTrans, noNA = 0.2)
+SoybeanImputed <- knnImputation(SoybeanTrans, k = 10)
+
+gg_miss_fct(x = SoybeanImputed, fct = Class) + labs(title = "NA in Soybean Imputed Predictors and Disease Class")
+```
+
+From the above plot, we can conform that post imputation, all the missing values have been imputed using KNN.
+
+Also, we need to check the colinearity amongst the predictors to identify if there is additional scope to remove predictors further from the data set.
+
+#### Correlation Plot
+
+```{r fig.height=10, fig.width=10}
+SoybeanImputed <- SoybeanImputed %>% select(-c("Class"))
+
+indx <- sapply(SoybeanImputed, is.factor)
+SoybeanImputed[indx] <- lapply(SoybeanImputed[indx], function(x) as.numeric(as.character(x)))
+
+corrMatrix <- round(cor(SoybeanImputed),4)
+
+corrMatrix %>% corrplot(., method = "color", outline = T, addgrid.col = "darkgray", order="hclust", addrect = 4, rect.col = "black", rect.lwd = 5,cl.pos = "b", tl.col = "indianred4", tl.cex = 1.0, cl.cex = 1.0, addCoef.col = "white", number.digits = 2, number.cex = 0.8, col = colorRampPalette(c("darkred","white","dodgerblue4"))(100))
+
+```
+
+Based on the above Corrplot, further anlysis can be done to identify colinearity amongst predictors and a decision can be made to remove more predictors from the model.
