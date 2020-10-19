@@ -1,0 +1,661 @@
+---
+title: "DATA 624 - Homework6 - Timeseries ARIMA Model"
+author: "Soumya Ghosh"
+date: "October 18, 2020"
+always_allow_html: yes
+output:
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r warning=FALSE, message=FALSE}
+library(kableExtra)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(TSstudio)
+library(RColorBrewer)
+library(GGally)
+library(fpp2)
+library(seasonal)
+library(grid)
+library(gridExtra)
+library(forecast)
+library(urca)
+```
+
+## Forecasting: Principles & Practice
+
+### Section 8.11 Exercise 1
+
+
+Figure 8.31 shows the ACFs for 36 random numbers, 360 random numbers and 1,000 random numbers.
+
+![Figure 8.31](./Images/Image%208.31.PNG)
+
+a) Explain the differences among these figures. Do they all indicate that the data are white noise?
+
+**Ans:** For a white noise series, we expect 95% of the spikes in the ACF to lie within $\pm \frac { 1.96 }{ \sqrt { T }  }$, where T is the length of the time series. That is why, as T gets larger, the range between the dashed lines around the mean of zero in the diagrams is getting narrower. The diagrams do have some spikes touching or going slightly beyond the 95% interval border lines and, counted together, none of them make up more than 5% of T values. Therefore all 3 series can be regarded as white noise.
+
+
+b) Why are the critical values at different distances from the mean of zero? Why are the autocorrelations different in each figure when they each refer to white noise?
+
+**Ans:** The reason the critical values are at different distances from the mean of zero is because there is a random autocorrelation with some positive and negative values around the zero line. It's related to the law of large numbers. As the number of observations increase, the number of large outliers from the mean decreases.
+
+We are more certain that a large observation is really an outlier with more data. Given that the 3 series are composed of randomly chosen numbers, we expect the values and subsequently the autocorrelation values (in magnitude and direction) to be also random as well. Therefore, we expect the graphs to look different from each other and to show random and small in magnitude fluctuations which follows the definition of white noise.
+
+### Section 8.11 Exercise 2
+
+A classic example of a non-stationary series is the daily closing IBM stock price series (data set ibmclose). Use R to plot the daily closing prices for IBM stock and the ACF and PACF. Explain how each plot shows that the series is non-stationary and should be differenced.
+
+#### DataSet: ibmclose
+
+**Description:** - Daily closing IBM stock price.
+
+
+```{r warning=FALSE, message=FALSE}
+ibmclose
+```
+#### Plots: Timeplot, ACF & PACF
+
+```{r}
+ibmclose %>% ggtsdisplay(main = "IBM Stock Price"
+                         ,xlab = "No. of Days"
+                         ,ylab = "Stock Price$")
+```
+
+#### Stationarity Conclusion:
+
+Time series with trends and/or with seasonality are not stationary. 
+ - It is clear from the time plot that there is a trend in IBM's stock price. 
+ - The ACF will drop to zero quickly for a stationary time series. The ACF plot above shows a gradual decrease which is an evidence on non-stationarity. 
+ - Also, ACF plot shows that the autocorrelation values are bigger than critical values.
+ - PACF plot shows that there is a strong correlation between IBM stock data and their 1 lagged values. It means that IBM stock data can be predicted by 1 lagged values and they aren't stationary.
+
+To get stationary data, IBM stock data need differencing. Differencing can help stabilize the mean of a time series by removing changes in the level of a time series. Therefore it will eliminate or reduce trend and seasonality where the effect can make non-staionary data stationary.
+
+### Section 8.11 Exercise 3
+
+For the following series, find an appropriate Box-Cox transformation and order of differencing in order to obtain stationary data.
+
+ - usnetelec
+ - usgdp
+ - mcopper
+ - enplanements
+ - visitors
+
+#### DataSet1: usnetelec
+
+**Description:** - Annual US net electricity generation (billion kwh) for 1949-2003.
+
+#### Plots: Timeplot, ACF & PACF
+
+```{r}
+usnetelec %>% ggtsdisplay(main = "Annual US net electricity generation"
+                         ,xlab = "Year"
+                         ,ylab = "Billion kwh")
+```
+
+#### Box-Cox Transformations & Differencing
+
+```{r}
+usnetelec_lambda <- BoxCox.lambda(usnetelec)
+bc_usnetelec <- BoxCox(usnetelec, lambda = usnetelec_lambda)
+
+cat("Box Cox Transform Lambda:",usnetelec_lambda)
+```
+
+The time plot shows a positive nearly linear trend in data. There is a need to apply differencing to gain stationary data. I have used the **ndiffs()** function to determine the order of differencing.
+
+```{r}
+data_bc <- diff(bc_usnetelec, ndiffs(bc_usnetelec))
+
+# Portmanteau Test for White Noise
+data_bc %>% Box.test(lag=10, type="Ljung-Box")
+```
+The Ljung-Box Q* statistic has a p-value of 0.003 which is quite small. So Box Cox transformation doesn't seem to benefit towards getting stationary data. So I have decided not to use it.
+
+```{r}
+data <- diff(usnetelec, ndiffs(usnetelec))
+data %>% Box.test(lag=10, type="Ljung-Box")
+
+```
+Removing Box Cox Transform yields much higher p-Value of 0.6833(for h=10) which is favorable in tarnsforming towards random white noise data.
+
+```{r}
+
+data %>% 
+  ggtsdisplay(main = paste0("Differenced US Net Electricity Generation (lag=", ndiffs(usnetelec),")"))
+```
+#### Stationarity Tests
+
+```{r}
+data %>% ur.kpss() %>% summary()
+
+```
+The test statistic from the KPSS unit root test is sufficiently small. So we can conclude differenced data is stationary.
+
+Hence a first order differencing without any Box Cox transform is appropriate for this series. 
+
+
+#### DataSet2: usgdp
+
+**Description:** - Quarterly US GDP. 1947:1 - 2006.1.
+
+#### Plots: Timeplot, ACF & PACF
+
+```{r}
+usgdp %>% ggtsdisplay(main = "Quarterly US GDP"
+                         ,xlab = "Year"
+                         ,ylab = "US Dollars")
+```
+
+#### Box-Cox Transformations & Differencing
+
+```{r}
+usgdp_lambda <- BoxCox.lambda(usgdp)
+bc_usgdp <- BoxCox(usgdp, lambda = usgdp_lambda)
+
+cat("Box Cox Transform Lambda:",usgdp_lambda)
+```
+
+The time plot shows a positive nearly linear trend in data. There is a need to apply differencing to gain stationary data. I have used the **ndiffs()** function to determine the order of differencing.
+
+```{r}
+data_bc <- diff(bc_usgdp, ndiffs(bc_usgdp))
+
+# Portmanteau Test for White Noise
+data_bc %>% Box.test(lag=10, type="Ljung-Box")
+```
+The Ljung-Box Q* statistic has a p-value of 5.665e-06 which is small. So I wanted to evluate the effect of differencing w/o the Box Cox transform -
+
+```{r}
+data <- diff(usgdp, ndiffs(usgdp))
+data %>% Box.test(lag=10, type="Ljung-Box")
+```
+The Ljung-Box Q* statistic has a p-value lower than what we received earlier, hence I have decided to retain the Box Cox transform.
+
+
+```{r}
+data_bc %>% 
+  ggtsdisplay(main = paste0("Differenced US GDP (lag=", ndiffs(bc_usgdp), ", lambda=",round(usgdp_lambda,2),")"))
+
+```
+
+#### Stationarity Tests
+
+```{r}
+data_bc %>% ur.kpss() %>% summary()
+
+```
+The test statistic from the KPSS unit root test is sufficiently small. So we can conclude differenced data is stationary.
+
+Hence a first order differencing with a Box Cox transform of lambda = 0.37 is appropriate for this series. 
+
+#### DataSet3: mcopper
+
+**Description:** - Monthly copper prices. Copper, grade A, electrolytic wire bars/cathodes,LME,cash (pounds/ton) Source: UNCTAD (http://stats.unctad.org/Handbook).
+
+#### Plots: Timeplot, ACF & PACF
+
+```{r}
+mcopper %>% ggtsdisplay(main = "Monthly copper price"
+                         ,xlab = "Year"
+                         ,ylab = "Pounds per ton")
+```
+
+#### Box-Cox Transformations & Differencing
+
+```{r}
+mcopper_lambda <- BoxCox.lambda(mcopper)
+bc_mcopper <- BoxCox(mcopper, lambda = mcopper_lambda)
+
+cat("Box Cox Transform Lambda:",mcopper_lambda)
+```
+
+The time plot shows a increasing trend in data. There is a need to apply differencing to gain stationary data. I have used the **ndiffs()** function to determine the order of differencing.
+
+```{r}
+data_bc <- diff(bc_mcopper, ndiffs(bc_mcopper))
+
+# Portmanteau Test for White Noise
+data_bc %>% Box.test(lag=10, type="Ljung-Box")
+```
+The Ljung-Box Q* statistic has a p-value of 1.594e-10 which is small. So I wanted to evluate the effect of differencing w/o the Box Cox transform -
+
+```{r}
+data <- diff(mcopper, ndiffs(mcopper))
+data %>% Box.test(lag=10, type="Ljung-Box")
+```
+The Ljung-Box Q* statistic has a slightly higher p-value compared to what we received earlier, hence I have decided not to use the Box Cox transform.
+
+
+```{r}
+data %>% 
+  ggtsdisplay(main = paste0("Differenced Monthly Copper Price (lag=", ndiffs(mcopper),")"))
+
+```
+
+#### Stationarity Tests
+
+```{r}
+data %>% ur.kpss() %>% summary()
+
+```
+The test statistic from the KPSS unit root test is sufficiently small. So we can conclude differenced data is stationary.
+
+Hence a first order differencing without a Box Cox transform is appropriate for this series. 
+
+#### DataSet4: enplanements
+
+**Description:** - "Domestic Revenue Enplanements (millions): 1996-2000. SOURCE: Department of Transportation, Bureau of Transportation Statistics, Air Carrier Traffic Statistic Monthly.
+
+#### Plots: Timeplot, ACF & PACF
+
+```{r}
+enplanements %>% ggtsdisplay(main = "US domestic enplanements"
+                         ,xlab = "Year"
+                         ,ylab = "Millions")
+```
+
+The time plot shows a positive trend in data with strong seasonality. Also the variance appears to be inconsistent over time, hence Box Cox transformation and seasonal differencing are needed to gain stationary data.
+
+#### Box-Cox Transformations & Differencing
+
+```{r}
+enplanements_lambda <- BoxCox.lambda(enplanements)
+bc_enplanements <- BoxCox(enplanements, lambda = enplanements_lambda)
+
+cat("Box Cox Transform Lambda:",enplanements_lambda)
+```
+
+I have used the **nsdiffs()** function to determine the order of seasonal differencing.
+
+```{r}
+nsdiffs(bc_enplanements)
+```
+
+Applying one seasonal differencing followed by a first order differencing -
+
+```{r}
+data_bc <- bc_enplanements %>% diff(lag = frequency(enplanements)) %>% diff()
+
+# Portmanteau Test for White Noise
+data_bc %>% Box.test(lag=10, type="Ljung-Box")
+```
+The Ljung-Box Q* statistic has a p-value of 1.745e-06. 
+
+```{r}
+data_bc %>% 
+  ggtsdisplay(main = paste0("Seasonally Differenced Domestic Revenue Enplanements (lag=", frequency(enplanements), ", lambda=",round(enplanements_lambda,2),")"))
+
+```
+
+#### Stationarity Tests
+
+```{r}
+data_bc %>% ur.kpss() %>% summary()
+
+```
+The test statistic from the KPSS unit root test is sufficiently small. So we can conclude differenced data is stationary.
+
+Hence a Box Cox transform of lambda = -0.23 with a seasonal differencing followed by a first order differencing is appropriate for this series. 
+
+#### DataSet5: visitors
+
+**Description:** - Monthly Australian short-term overseas vistors. May 1985-April 2005.
+
+#### Plots: Timeplot, ACF & PACF
+
+```{r}
+visitors %>% ggtsdisplay(main = "Overseas visitors to Australia"
+                         ,xlab = "Year"
+                         ,ylab = "Thousands of people")
+```
+
+The time plot shows a positive trend in data with strong seasonality. Also the variance appears to be inconsistent over time, hence Box Cox transformation and seasonal differencing are needed to gain stationary data.
+
+#### Box-Cox Transformations & Differencing
+
+```{r}
+visitors_lambda <- BoxCox.lambda(visitors)
+bc_visitors <- BoxCox(visitors, lambda = visitors_lambda)
+
+cat("Box Cox Transform Lambda:",visitors_lambda)
+```
+
+I have used the **nsdiffs()** function to determine the order of seasonal differencing.
+
+```{r}
+nsdiffs(bc_visitors)
+```
+
+Applying one seasonal differencing followed by a first order differencing -
+
+```{r}
+data_bc <- bc_visitors %>% diff(lag = frequency(visitors)) %>% diff()
+
+# Portmanteau Test for White Noise
+data_bc %>% Box.test(lag=10, type="Ljung-Box")
+```
+The Ljung-Box Q* statistic has a p-value of 0.0009755. 
+
+```{r}
+data_bc %>% 
+  ggtsdisplay(main = paste0("Australian short-term overseas vistors (lag=", frequency(visitors), ", lambda=",round(visitors_lambda,2),")"))
+
+```
+
+#### Stationarity Tests
+
+```{r}
+data_bc %>% ur.kpss() %>% summary()
+
+```
+The test statistic from the KPSS unit root test is sufficiently small. So we can conclude differenced data is stationary.
+
+Hence a Box Cox transform of lambda = 0.28 with a seasonal differencing followed by a first order differencing is appropriate for this series. 
+
+
+
+### Section 8.11 Exercise 5
+
+For your retail data (from Exercise 3 in Section 2.10), find the appropriate order of differencing (after transformation if necessary) to obtain stationary data.
+
+#### DataSet: Retail
+
+```{r fig.height=10, fig.width=10}
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
+
+```
+I have selected **"A3349337W"** as the timeseries from the retail data set for this exercise.
+  
+```{r}
+myts <- ts(retaildata[,"A3349337W"],frequency=12, start=c(1982,4))
+
+myts %>% ggtsdisplay(main = "Retail Sales for Category = A3349337W"
+                         ,xlab = "Year"
+                         ,ylab = "$ Sales Turnover")
+
+```
+The time plot shows a positive trend in data with strong seasonality. Also the variance appears to be inconsistent over time, hence Box Cox transformation and seasonal differencing are needed to gain stationary data.
+
+#### Box-Cox Transformations & Differencing
+
+```{r}
+myts_lambda <- BoxCox.lambda(myts)
+bc_myts <- BoxCox(myts, lambda = myts_lambda)
+
+cat("Box Cox Transform Lambda:",myts_lambda)
+```
+
+I have used the **nsdiffs()** function to determine the order of seasonal differencing.
+
+```{r}
+nsdiffs(bc_myts)
+```
+
+Applying one seasonal differencing followed by a first order differencing -
+
+```{r}
+data_bc <- bc_myts %>% diff(lag = frequency(myts)) %>% diff()
+
+# Portmanteau Test for White Noise
+data_bc %>% Box.test(lag=10, type="Ljung-Box")
+```
+The Ljung-Box Q* statistic has a p-value of 0.005646. 
+
+```{r}
+data_bc %>% 
+  ggtsdisplay(main = paste0("Retail Sales (lag=", frequency(myts), ", lambda=",round(myts_lambda,2),")"))
+
+```
+
+#### Stationarity Tests
+
+```{r}
+data_bc %>% ur.kpss() %>% summary()
+
+```
+The test statistic from the KPSS unit root test is sufficiently small. So we can conclude differenced data is stationary.
+
+Hence a Box Cox transform of lambda = 0.28 with a seasonal differencing followed by a first order differencing is appropriate for this series. 
+
+
+### Section 8.11 Exercise 6
+
+Use R to simulate and plot some data from simple ARIMA models.
+
+a) Use the following R code to generate data from an AR(1) model with ${ \phi  }_{ 1 }=0.6$ and ${ \sigma  }^{ 2 }=1$. The process starts with ${ \sigma  }^{ 2 }=1$.
+
+***y <- ts(numeric(100))***
+
+***e <- rnorm(100)***
+
+***for(i in 2:100)***
+
+  ***y[i] <- 0.6*y[i-1] + e[i]***
+
+```{r}
+set.seed(123)
+generateAR1 <- function(phi) {
+    y <- ts(numeric(100))
+    e <- rnorm(100)
+    for(i in 2:100)
+      y[i] <- phi*y[i-1] + e[i]
+    return (y)
+}
+
+```
+b) Produce a time plot for the series. How does the plot change as you change ${ \phi  }_{ 1 }$?
+
+#### Timeplot: ${ \phi  }_{ 1 }$ = 0.6:
+
+```{r}
+generateAR1(0.6) %>% ggtsdisplay()
+```
+
+#### Effect of Changing ${ \phi  }_{ 1 }$:
+
+```{r fig.height= 6, fig.width=10}
+
+p <- autoplot(generateAR1(0.6), size = 1, series = "0.6")
+
+for(phi in seq(0.1, 0.9, 0.2)){
+  p <- p + autolayer(generateAR1(phi), series = paste(phi))
+}
+p +
+  labs(title="The effects of changing Phi", color = "Phi") +
+  theme(axis.title = element_blank(), legend.position = "bottom") +
+  scale_color_brewer(palette = "Reds")
+```
+
+So it can be concluded that the change in ${ \phi  }_{ 1 }$ results in time plots of various time series patterns. variance in y increases with the increase in ${ \phi  }_{ 1 }$.
+ 
+c) Write your own code to generate data from an MA(1) model with ${ \theta  }_{ 1 }=0.6$ and ${ \sigma  }^{ 2 }=1$.
+
+```{r}
+generateMA1 <- function(theta){
+  set.seed(42)
+  y <- ts(numeric(100))
+  e <- rnorm(100)
+  e[1] <- 0
+  for(i in 2:100){
+    y[i] <- theta*e[i-1] + e[i]
+  }
+  return(y)
+}
+
+```
+
+d) Produce a time plot for the series. How does the plot change as you change ${ \theta  }_{ 1 }$?
+
+#### Timeplot: ${ \theta  }_{ 1 }$ = 0.6:
+
+```{r}
+generateMA1(0.6) %>% ggtsdisplay()
+```
+
+#### Effect of Changing ${ \theta  }_{ 1 }$:
+
+```{r fig.height= 6, fig.width=10}
+
+p <- autoplot(generateMA1(0.6), size = 1, series = "0.6")
+
+for(theta in seq(0.1, 0.9, 0.2)){
+  p <- p + autolayer(generateMA1(phi), series = paste(theta))
+}
+p +
+  labs(title="The effects of changing Theta", color = "Theta") +
+  theme(axis.title = element_blank(), legend.position = "bottom") +
+  scale_color_brewer(palette = 1)
+```
+
+This is a bit harder to see but as theta increases, variation of y increases.
+
+
+e) Generate data from an ARMA(1,1) model with ${ \phi  }_{ 1 }=0.6,\quad { \theta  }_{ 1 }=0.6\quad and\quad { \sigma  }^{ 2 }=1$ .
+
+```{r}
+generateARMA <- function(phi, theta){
+  set.seed(42)
+  y <- ts(numeric(100))
+  e <- rnorm(100)
+  e[1] <- 0
+  for(i in 2:100)
+    y[i] <- phi*y[i-1] + theta*e[i-1] + e[i]
+  return(y)
+}
+```
+
+f) Generate data from an AR(2) model with  ${ \phi  }_{ 1 }=-0.8,\quad { \phi  }_{ 2 }=0.3\quad and\quad { \sigma  }^{ 2 }=1$. (Note that these parameters will give a non-stationary series.)
+
+```{r}
+generateAR2 <- function(phi1, phi2){
+  set.seed(42)
+  y <- ts(numeric(100))
+  e <- rnorm(100)
+  for(i in 3:100)
+    y[i] <- phi1*y[i-1] + phi2*y[i-2] + e[i]
+  return(y)
+}
+
+```
+
+g) Graph the latter two series and compare them.
+
+```{r}
+autoplot(generateARMA(0.6, 0.6), series = "ARMA(1,1)") +
+  autolayer(generateAR2(-0.8, 0.3), series = "AR(2)") +
+  theme(axis.title = element_blank(), legend.position = "bottom", legend.title = element_blank()) +
+  scale_color_brewer(palette = "Set1")
+```
+
+Both data oscillate around zero mean, however ARMA(1,1) look more like white noise, whereas AR(2) appears to have some gradual but exponential increase in the variance.
+
+
+### Section 8.11 Exercise 7
+
+Consider wmurders, the number of women murdered each year (per 100,000 standard population) in the United States.
+
+#### DataSet: wmurders
+
+**Description:** - Total Murdered women, per 100 000 standard population.
+
+#### Plots: Timeplot, ACF & PACF
+
+```{r}
+wmurders %>% ggtsdisplay(main = "Total Murdered women, per 100 000 standard populatio"
+                         ,xlab = "Year"
+                         ,ylab = "Hundred of Thousand people")
+```
+
+
+a) By studying appropriate graphs of the series in R, find an appropriate ARIMA(p,d,q) model for these data.
+
+ - The data initially show an increasing trend upwards. Then it oscillates around certain level and then finally shows steady decline. It is possible that the data follow similar pattern of historical crime rate. There is a spike post year 2000, which would suggest the deaths on 9/11 2001.
+ - There is no evidence of changing variance, so Box-Cox transformation can be skipped. 
+ - To turn the data into stationary representation, first differencing is used even though unit-root test suggested second-order differencing. Oddly, performing Box.test on second-order differencing contradicts the ndiffs result and confirms that the single first differencing would be enough.
+
+```{r}
+wmurders %>% ndiffs()
+
+wmurders %>% diff() %>% Box.test()
+
+wmurders %>% diff() %>% diff() %>% Box.test()
+
+wmurders %>% diff() %>% ggtsdisplay()
+```
+
+Given the ACF/PACF plots above, the candidate models to try would be ARIMA(2,1,0) and ARIMA(0,1,2). The two models are very similar, with ARIMA(0,1,2) having slightly better (lower) information criterial values (AICc, etc.).
+
+```{r}
+(arima_fit1 <- Arima(wmurders, order = c(2,1,0)))
+
+(arima_fit2 <- Arima(wmurders, order = c(0,1,2)))
+
+checkresiduals(arima_fit2)
+
+```
+
+Trying different models, by increasing values of parameters p, d, and q, did not show better AICc results. Therefore the preferred model would be ARIMA(0,1,2).
+
+The residuals, shown above, from ARIMA(0,1,2) model do indeed look like white noise, confirming a good fit.
+
+b) Should you include a constant in the model? Explain.
+
+**Ans:** Given that there is no consistent trend, the model should not include a constant which would introduce a drift. Since the differencing term d = 2, if c = 0 then the long term forecast will follow a straight line with intercept and slope determined by the last few observations. If c != 0 then the long term forecasts will follow a quadratic trend. Opting for the simpler model, We should not include the constant in the model.
+
+
+c) Write this model in terms of the backshift operator.
+
+$(1-{ \phi  }_{ 1 }B){ (1-B) }^{ 2 }{ y }_{ t }=c+(1+{ \theta  }_{ 1 }B){ \varepsilon  }_{ t }$
+
+
+d) Fit the model using R and examine the residuals. Is the model satisfactory?
+
+```{r}
+arima_fit <- arima(wmurders, order = c(1, 2, 1))
+checkresiduals(arima_fit)
+
+```
+
+The ACF show all autocorrelations are withing acceptable limits, indicating residuals are white noise. The p-value of the Ljung-Box test also indicate the residuals are white noise.
+
+e) Forecast three times ahead. Check your forecasts by hand to make sure that you know how they have been calculated.
+
+```{r}
+forecast(arima_fit, h=3) %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+f) Create a plot of the series with forecasts and prediction intervals for the next three periods shown.
+
+```{r}
+autoplot(forecast(arima_fit, h=3))
+```
+
+g) Does auto.arima() give the same model you have chosen? If not, which model do you think is better?
+
+```{r}
+auto.arima(wmurders)
+```
+
+Yes auto.arima() gives the same model that I have chosen.
+
