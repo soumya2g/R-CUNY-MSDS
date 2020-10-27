@@ -1,0 +1,942 @@
+---
+title: "DATA 624 - Project1 - Timeseries Forecast Models"
+author: "Soumya Ghosh"
+date: "October 20, 2020"
+always_allow_html: yes
+output:
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r warning=FALSE, message=FALSE}
+library(kableExtra)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(TSstudio)
+library(RColorBrewer)
+library(GGally)
+library(fpp2)
+library(seasonal)
+library(grid)
+library(gridExtra)
+library(forecast)
+library(urca)
+library(lubridate)
+library(imputeTS)
+library(xts)
+#library(naniar)
+```
+
+## PART A: DataSet - ATM Cash Draw
+
+```{r fig.height=10, fig.width=10}
+atmdata <- readxl::read_excel("ATM624Data.xlsx", skip=0)
+
+atmdata %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+#summary(atmdata)
+```
+
+### Missing Value Analysis
+
+```{r}
+## Counts of missing data per feature
+train_na_df <- data.frame(apply(atmdata, 2, function(x) length(which(is.na(x)))))
+train_na_df1 <- data.frame(apply(atmdata, 2,function(x) {sum(is.na(x)) / length(x) * 100}))
+
+train_na_df <- cbind(Feature = rownames(train_na_df), train_na_df, train_na_df1)
+colnames(train_na_df) <- c('Feature Name','No. of NA Recocrds','Percentage of NA Records')
+rownames(train_na_df) <- NULL
+
+
+train_na_df%>% filter(`No. of NA Recocrds` != 0) %>% arrange(desc(`No. of NA Recocrds`)) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="150px")
+```
+
+### Data Pre-Processing
+
+Firstly, removing records with missing 'ATM' values -
+
+```{r}
+atmdata <- atmdata %>% dplyr::filter(ATM != '')
+```
+
+Converting the **'DATE'** column from Excel numeric format to proper date format -
+
+```{r}
+atmdata$DATE_Formatted <- as.Date(atmdata$DATE, origin = "1899-12-30")
+atmdataDF <- atmdata %>% select(DATE_Formatted,ATM,Cash) 
+colnames(atmdataDF) <- c("DATE","ATM","Cash")
+
+```
+**Pivoting the dataframe by ATM:**
+
+```{r}
+
+atmdataDF <- atmdataDF %>% pivot_wider(names_from = ATM, values_from = Cash)
+atmdataDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+summary(atmdataDF)
+```
+
+It can be observed for **ATM1** and **ATM2**, there are some missing 'NA' values present which need to be imputed. For **ATM3**, we have data from only 3 days which could be due to the fact that ATM might have a delayed operational start date compared to other two ATMs. ATM4 clearly has an outlier.
+
+**Outlier handling:**
+
+```{r}
+atmdataDF <- atmdataDF %>% mutate(ATM4= ifelse(ATM4== max(ATM4),median(ATM4, na.rm = TRUE),ATM4))
+```
+
+**Converting into a Timeseries object:**
+
+```{r}
+atm_ts <- atmdataDF %>% select(-DATE) %>% ts(start= c(2009,as.numeric(format(as.Date("2009-05-01"), "%j"))), frequency=365)
+
+#atmxts <- xts(atmdataDF %>% select(-DATE), order.by = atmdataDF$DATE)
+```
+
+### Time Plot: 
+
+```{r fig.height=7, fig.width=7}
+autoplot(atm_ts, facets = TRUE) +
+  ggtitle("ATM Cash Withdrawal") +
+  xlab("Days") + 
+  ylab("Thousands of Dollars")
+
+```
+
+From the plots above, it is evident that-
+ - ATM1 and ATM2 have some weekly or monthly seasonality present in teh data 
+ - ATM3 has very little data available - only 3 days
+ - ATM4 looks more or less stationary apart from one observation which could be an outlier
+ 
+### ATM1:
+
+#### Data Imputation: 
+
+I have used **imputeTS** package to impute missing data for ATM1.
+
+```{r}
+ggplot_na_distribution(atm_ts[,"ATM1"])
+atm1_ts <- na_kalman(atm_ts[,"ATM1"], model = "auto.arima")
+ggplot_na_imputations(atm_ts[,"ATM1"], atm1_ts)
+```
+
+Before running any models I will check the ACF and PACF plots, and the ndiffs, nsdiffs, and BoxCox.lambda functions to see what they recommend for differencing and what type of model they suggest might be most appropriate.
+
+```{r}
+# Time plot
+atm1_ts %>% ggtsdisplay(main = "Cash Drawn from ATM1"
+                         ,xlab = "Days"
+                         ,ylab = "Cash Withdrawn (in hundreds of dollars)")
+
+```
+
+#### Observations:
+ - From ACF, it seems like there is weekly seasonality in the data is evident with large spikes on lags 7, 14, 21 etc.
+ - Also, PACF shows a high spike at lag=7 
+ - There is no clear trend present in data
+
+Hence, due to the presence of strong weekly trend I chaged the frequency of time series to 7.
+
+```{r}
+atm1_weekly_ts <- ts(atm1_ts, frequency=7)
+```
+
+Before running any models I will check the ACF and PACF plots, and the ndiffs, nsdiffs, and BoxCox.lambda functions to see what they recommend for differencing and what type of model they suggest might be most appropriate.
+
+```{r}
+atm1_weekly_ts %>% ggtsdisplay(main = "Cash Drawn from ATM1"
+                         ,xlab = "Weeks"
+                         ,ylab = "Cash Withdrawn (in hundreds of dollars)")
+
+ndiffs(atm1_weekly_ts)
+
+nsdiffs(atm1_weekly_ts)
+
+atm1_lambda <- BoxCox.lambda(atm1_weekly_ts)
+
+cat("Box Cox Transformation factor lambda=",atm1_lambda)
+```
+
+For ATM1 no first order differencing is recommended, only a first order seasonal difference and a box-cox transformation with lambda = 0.3240927. Let's plot the data again after these transformations are performed to see what impact they have.
+
+```{r}
+atm1_weekly_ts %>% BoxCox(atm1_lambda) %>% diff(lag=7) %>% ggtsdisplay(main = "Cash Drawn from ATM1 - w/ Box Cox Transform + Seasonal Differencing"
+                         ,xlab = "Weeks"
+                         ,ylab = "Cash Withdrawn (in hundreds of dollars)")
+```
+
+The plot above shows stationary timeseries data with most of the seasonality eliminated, although there are still spikes in the ACF plot at lag 7 and in the PACF plot at lags 7, 14, and 21. So I am going to add a first order differencing to eliminate any remaining seasonality -
+
+```{r}
+atm1_weekly_ts %>% BoxCox(atm1_lambda) %>% diff(lag=7) %>% diff() %>% ggtsdisplay(main = "Cash Drawn from ATM1 - w/ Box Cox Transform + Seasonal + 1st Order Differencing"
+                         ,xlab = "Weeks"
+                         ,ylab = "Cash Withdrawn (in hundreds of dollars)")
+```
+#### Model1: Holt-Winters w/ Box Cox 
+
+```{r}
+atm1_model_fit1 <- atm1_weekly_ts %>% hw(h=31, seasonal="additive", 
+                           damped=TRUE, lambda = atm1_lambda)
+autoplot(atm1_model_fit1) + theme(panel.background = element_blank()) +
+  ggtitle("Holt-Winters Damped Additive Method w/ Box Cox Transofrm") +
+  xlab ("Weeks") +
+  ylab ("Cash Withdrawn (in hundreds of dollars)")
+  
+```
+
+##### Model1 Accuracy
+
+```{r}
+accuracyDF <- data.frame(Model = "Holt-Winter's Additive Method with Box-Cox Transform", accuracy(atm1_model_fit1), row.names = NULL)
+
+accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model1 Residual
+
+```{r}
+checkresiduals(atm1_model_fit1)
+```
+
+The residuals plot looks not too bad, but Ljung-Box test has an extremely small p-value indicating that there is still some autocorrelation in our data as we saw in the plot of the transformed data. Our forecast plot looks not too bad either although those confidence intervals extend way past what we have seen historically in the data.
+
+#### Model2: ETS
+
+```{r}
+atm1_model_fit2 <- atm1_weekly_ts %>% ets(model="ZZZ", lambda = atm1_lambda)
+
+autoplot(atm1_model_fit2) + theme(panel.background = element_blank())
+
+autoplot(forecast(atm1_model_fit2, h=31)) + theme(panel.background = element_blank()) +
+  ggtitle("ETS method w/ Box Cox Transofrm") +
+  xlab ("Weeks") +
+  ylab ("Cash Withdrawn (in hundreds of dollars)")
+
+```
+
+##### Model2 Accuracy
+
+```{r}
+accuracyDF <- rbind(accuracyDF,data.frame(Model = "ETS Method with Box-Cox Transform", accuracy(atm1_model_fit2), row.names = NULL))
+
+accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model2 Residual
+
+```{r}
+checkresiduals(atm1_model_fit2)
+```
+
+The ETS model produced almost exactly the same results as Holt Winter's model with only slightly better RMSE and Ljung-Box results.
+
+#### Model3: ARIMA
+
+```{r}
+atm1_model_fit3 <- auto.arima(atm1_weekly_ts,stepwise=FALSE, approximation=FALSE)
+
+autoplot(forecast(atm1_model_fit3, h=31)) + theme(panel.background = element_blank()) +
+  xlab ("Weeks") +
+  ylab ("Cash Withdrawn (in hundreds of dollars)")
+```
+
+##### Model3 Accuracy
+
+```{r}
+accuracyDF <- rbind(accuracyDF,data.frame(Model = "ARIMA(0,0,1)(1,1,1)[7]", accuracy(atm1_model_fit3), row.names = NULL))
+
+accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model3 Residual
+
+```{r}
+checkresiduals(atm1_model_fit3)
+```
+
+The ARIMA model resulted in the best fit with the best RMSE and a Ljung-Box p-value that means we cannot reject the null hypothesis that the series is consistent with white noise. The plot of the forecast also looks like a more reasonable estimate of what we can expect based on the historical data.
+
+#### Results:
+
+```{r}
+atm1_forecast <- forecast(atm1_model_fit3, h=31)
+```
+
+#### ATM2:
+
+Following the exact same procedure for ATM2 -
+
+```{r}
+ggplot_na_distribution(atm_ts[,"ATM2"])
+atm2_ts <- na_kalman(atm_ts[,"ATM2"], model = "auto.arima")
+ggplot_na_imputations(atm_ts[,"ATM2"], atm2_ts)
+
+atm2_weekly_ts <- ts(atm2_ts, frequency=7)
+
+# Time plot
+atm2_weekly_ts %>% ggtsdisplay(main = "Cash Drawn from ATM2"
+                         ,xlab = "Days"
+                         ,ylab = "Cash Withdrawn (in hundreds of dollars)")
+
+```
+
+#### Observations:
+ - From ACF, it seems like there is weekly seasonality in the data is evident with large spikes on lags 7, 14, 21 etc.
+ - Also, PACF shows a high spike at lag=7
+ - There is no clear trend present in data
+
+
+
+```{r}
+ndiffs(atm2_weekly_ts)
+
+nsdiffs(atm2_weekly_ts)
+
+atm2_lambda <- BoxCox.lambda(atm2_weekly_ts)
+
+cat("Box Cox Transformation factor lambda=",atm2_lambda)
+```
+
+For ATM2 a first order differencing is recommended along with a first order seasonal difference and a box-cox transformation with lambda = 0.7286677. Let's plot the data again after these transformations are performed to see what impact they have.
+
+```{r}
+atm2_weekly_ts %>% BoxCox(atm2_lambda) %>% diff(lag=7) %>% ggtsdisplay(main = "Cash Drawn from ATM2 - w/ Box Cox Transform + Seasonal Differencing"
+                         ,xlab = "Weeks"
+                         ,ylab = "Cash Withdrawn (in hundreds of dollars)")
+```
+
+The plot above shows stationary timeseries data with most of the seasonality eliminated, although there are still spikes in the ACF plot at lag 7 and in the PACF plot at lags 1 and 7
+
+
+#### Model1: Holt-Winters w/ Box Cox 
+
+```{r}
+atm2_model_fit1 <- atm2_weekly_ts %>% hw(h=31, seasonal="additive", 
+                           damped=TRUE, lambda = atm2_lambda)
+autoplot(atm2_model_fit1) + theme(panel.background = element_blank()) +
+  ggtitle("Holt-Winters Damped Additive Method w/ Box Cox Transofrm") +
+  xlab ("Weeks") +
+  ylab ("Cash Withdrawn (in hundreds of dollars)")
+  
+```
+
+##### Model1 Accuracy
+
+```{r}
+atm2_accuracyDF <- data.frame(Model = "Holt-Winter's Additive Method with Box-Cox Transform", accuracy(atm2_model_fit1), row.names = NULL)
+
+atm2_accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model1 Residual
+
+```{r}
+checkresiduals(atm2_model_fit1)
+```
+
+The residuals plot looks not too bad, but Ljung-Box test has an extremely small p-value indicating that there is still some autocorrelation in our data as we saw in the plot of the transformed data. Our forecast plot looks not too bad either although those confidence intervals extend way past what we have seen historically in the data.
+
+#### Model2: ETS
+
+```{r}
+atm2_model_fit2 <- atm2_weekly_ts %>% ets(model="ZZZ", lambda = atm2_lambda)
+
+autoplot(atm2_model_fit2) + theme(panel.background = element_blank())
+
+autoplot(forecast(atm2_model_fit2, h=31)) + theme(panel.background = element_blank()) +
+  ggtitle("ETS method w/ Box Cox Transofrm") +
+  xlab ("Weeks") +
+  ylab ("Cash Withdrawn (in hundreds of dollars)")
+
+```
+
+##### Model2 Accuracy
+
+```{r}
+atm2_accuracyDF <- rbind(atm2_accuracyDF,data.frame(Model = "ETS Method with Box-Cox Transform", accuracy(atm2_model_fit2), row.names = NULL))
+
+atm2_accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model2 Residual
+
+```{r}
+checkresiduals(atm2_model_fit2)
+```
+
+The ETS model produced almost exactly the same results as Holt Winter's model.
+
+#### Model3: ARIMA
+
+```{r}
+atm2_model_fit3 <- auto.arima(atm2_weekly_ts,stepwise=FALSE, approximation=FALSE)
+
+autoplot(forecast(atm2_model_fit3, h=31)) + theme(panel.background = element_blank()) +
+  xlab ("Weeks") +
+  ylab ("Cash Withdrawn (in hundreds of dollars)")
+```
+
+##### Model3 Accuracy
+
+```{r}
+atm2_accuracyDF <- rbind(atm2_accuracyDF,data.frame(Model = "ARIMA (2,0,2)(0,1,1)[7]", accuracy(atm2_model_fit3), row.names = NULL))
+
+atm2_accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model3 Residual
+
+```{r}
+checkresiduals(atm2_model_fit3)
+```
+
+#### Model4: ARIMA with 1st Order Differencing
+
+Since the **ndiffs()** function recommended first order differencing but the **auto.arima()** function did not use differencing in the model, I want to manually adding it to see if we can improve the model.
+
+```{r}
+atm2_model_fit4 <- Arima(diff(atm2_weekly_ts), order=c(2,1,2),seasonal=c(0,1,1), lambda = atm2_lambda)
+
+autoplot(forecast(atm2_model_fit4, h=31)) + theme(panel.background = element_blank()) +
+  xlab ("Weeks") +
+  ylab ("Cash Withdrawn (in hundreds of dollars)")
+
+```
+##### Model4 Accuracy
+
+```{r}
+atm2_accuracyDF <- rbind(atm2_accuracyDF,data.frame(Model = "ARIMA (2,1,2)(0,1,1)[7]", accuracy(atm2_model_fit4), row.names = NULL))
+
+atm2_accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+##### Model4 Residual
+
+```{r}
+checkresiduals(atm2_model_fit4)
+```
+
+The **auto.arima()** function gave us the best results so that model will be used for predictions.
+
+#### Results:
+
+```{r}
+atm2_forecast <- forecast(atm2_model_fit3, h=31)
+```
+
+#### ATM3:
+
+Sicne there is not enough data for ATM3, I am going to use simple mean value to forecast for month of May -
+
+```{r}
+atm3_ts <- atm_ts[(nrow(atm_ts) - 2):nrow(atm_ts), "ATM3"]
+atm3_ts <- ts(atm3_ts, start = 363)
+atm_ts[,"ATM3"] -> atm3_ts
+atm3_ts[which(atm3_ts == 0)] <- NA
+
+
+# Time plot
+atm3_ts %>% ggtsdisplay(main = "Cash Drawn from ATM3"
+                         ,xlab = "Weeks"
+                         ,ylab = "Cash in hundreds of dollars")
+
+```
+#### Mean Forecast Model:
+
+```{r}
+atm3_forecast <- meanf(atm3_ts, 31)
+
+```
+
+
+#### ATM4:
+
+For ATM4, I have followed the exact same procedure as ATM1 and ATM2.
+
+```{r}
+atm4_weekly_ts <- ts(atm_ts[,"ATM4"],frequency = 7)
+
+# Time plot
+atm4_weekly_ts %>% ggtsdisplay(main = "Cash Drawn from ATM4"
+                         ,xlab = "Days"
+                         ,ylab = "Cash in hundreds of dollars")
+
+```
+
+
+```{r}
+ndiffs(atm4_weekly_ts)
+
+nsdiffs(atm4_weekly_ts)
+
+atm4_lambda <- BoxCox.lambda(atm4_weekly_ts)
+
+cat("Box Cox Transformation factor lambda=",atm4_lambda)
+```
+#### Observations:
+ - Weekly seasonal pattern is clearly visible with spikes at lag = 7,14,21 etc..
+ - Here no differencing or seasonal differencing was recommended but a box-cox transformation with lambda = 0.4525697 was. 
+ - Looking at the plots however, it's not clear that the box-cox transformation improved the stationarity of the data. Seasonal spikes are still apparent.
+
+```{r}
+atm4_weekly_ts %>% BoxCox(atm4_lambda) %>% diff(lag=7) %>% ggtsdisplay(main = "Cash Drawn from ATM4 - w/ Box Cox Transform + Seasonal Differencing"
+                         ,xlab = "Weeks"
+                         ,ylab = "Cash Withdrawn (in hundreds of dollars)")
+```
+
+The plot above shows stationary timeseries data with most of the seasonality eliminated, although there are still spikes in the ACF plot at lag 7 and in the PACF plot at lags 7
+
+
+#### Model1: Holt-Winters w/ Box Cox 
+
+```{r}
+atm4_model_fit1 <- atm4_weekly_ts %>% hw(h=31, seasonal="additive", 
+                           damped=TRUE, lambda = atm1_lambda)
+autoplot(atm4_model_fit1) + theme(panel.background = element_blank()) +
+  ggtitle("Holt-Winters Damped Additive Method w/ Box Cox Transofrm") +
+  xlab ("Weeks") +
+  ylab ("Cash Withdrawn (in hundreds of dollars)")
+  
+```
+
+##### Model1 Accuracy
+
+```{r}
+atm4_accuracyDF <- data.frame(Model = "Holt-Winter's Additive Method with Box-Cox Transform", accuracy(atm4_model_fit1), row.names = NULL)
+
+atm4_accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model1 Residual
+
+```{r}
+checkresiduals(atm4_model_fit1)
+```
+
+The residuals plot looks not too bad, but Ljung-Box test has an extremely small p-value indicating that there is still some autocorrelation in our data as we saw in the plot of the transformed data. Our forecast plot looks not too bad either although those confidence intervals extend way past what we have seen historically in the data.
+
+#### Model2: ETS
+
+```{r}
+atm4_model_fit2 <- atm4_weekly_ts %>% ets(model="ZZZ", lambda = atm4_lambda)
+
+autoplot(atm4_model_fit2) + theme(panel.background = element_blank())
+
+autoplot(forecast(atm4_model_fit2, h=31)) + theme(panel.background = element_blank()) +
+  ggtitle("ETS method w/ Box Cox Transofrm") +
+  xlab ("Weeks") +
+  ylab ("Cash Withdrawn (in hundreds of dollars)")
+
+```
+
+##### Model2 Accuracy
+
+```{r}
+atm4_accuracyDF <- rbind(atm4_accuracyDF,data.frame(Model = "ETS Method with Box-Cox Transform", accuracy(atm4_model_fit2), row.names = NULL))
+
+atm4_accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model2 Residual
+
+```{r}
+checkresiduals(atm4_model_fit2)
+```
+
+The ETS model produced a slightly better RMSE than Holt Winter's model.
+
+#### Model3: ARIMA
+
+```{r}
+atm4_model_fit3 <- auto.arima(atm4_weekly_ts,stepwise=FALSE, approximation=FALSE)
+
+autoplot(forecast(atm4_model_fit3, h=31)) + theme(panel.background = element_blank()) +
+  xlab ("Weeks") +
+  ylab ("Cash Withdrawn (in hundreds of dollars)")
+```
+
+##### Model3 Accuracy
+
+```{r}
+atm4_accuracyDF <- rbind(atm4_accuracyDF,data.frame(Model = "ARIMA (1,0,0)(2,0,0)[7]", accuracy(atm4_model_fit3), row.names = NULL))
+
+atm4_accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model3 Residual
+
+```{r}
+checkresiduals(atm4_model_fit3)
+```
+
+For ATM4, the ARIMA model performs poorly as compared to ETS model and slightly better RMSE than the Holt-Winter's. But since the **auto.arima()** function did not choose to use any seasonal differencing and some seasonality seems apparent in the plots, a different arima model was tested using first order seasonal differencing until the best performance was attained using the model below.
+
+#### Model4: ARIMA with Seasonal Differencing
+
+```{r}
+atm4_model_fit4 <- Arima(diff(atm4_weekly_ts), order=c(0,0,1),seasonal=c(14,1,0), lambda = atm4_lambda)
+
+autoplot(forecast(atm4_model_fit4, h=31)) + theme(panel.background = element_blank()) +
+  xlab ("Weeks") +
+  ylab ("Cash Withdrawn (in hundreds of dollars)")
+
+```
+
+##### Model4 Accuracy
+
+```{r}
+atm4_accuracyDF <- rbind(atm4_accuracyDF,data.frame(Model = "ARIMA (0,0,1)(14,1,0)[7]", accuracy(atm4_model_fit4), row.names = NULL))
+
+atm4_accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+##### Model4 Residual
+
+```{r}
+checkresiduals(atm4_model_fit4)
+```
+
+The **ETS** method gave us the best results so that model will be used for predictions.
+
+#### Results:
+
+```{r}
+dates <- seq(as.Date("2010-05-01"), length=31, by="days")
+#atm4_forecast <- cbind(ATM="ATM4",date=dates,data.frame(forecast(atm4_model_fit2, h=31))) %>% remove_rownames()
+
+#atm_forecast <- rbind(atm1_forecast,atm2_forecast,atm3_forecast,atm4_forecast)
+#write_csv(atm_forecast, "ATM_Forecast.csv")
+
+atm4_forecast <- forecast(atm4_model_fit2, h=31)
+
+tibble(DATE = rep(max(atmdataDF$DATE) + 1:31, 4),
+           ATM = rep(names(atmdataDF)[-1], each = 31),
+           Cash = c(atm1_forecast$mean, atm2_forecast$mean,
+                   atm3_forecast$mean, atm4_forecast$mean)) %>% 
+write_csv("ATM_Forecast.csv")
+```
+
+## PART B: DataSet - Residential Power Forecast
+
+```{r fig.height=10, fig.width=10}
+powerdata <- readxl::read_excel("ResidentialCustomerForecastLoad-624.xlsx", skip=0)
+
+powerdata %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+summary(powerdata)
+```
+
+```{r}
+# Format DATE column
+powerdata$`YYYY-MMM` <- paste0(powerdata$`YYYY-MMM`,"-01")
+powerdata$DATE <- lubridate::ymd(powerdata$`YYYY-MMM`)
+
+# Plot data
+ggplot(powerdata, aes(DATE, KWH)) + geom_line() + 
+  labs(title="Residential Power Usage", y="KWH", x="") +
+  theme(panel.background = element_blank())
+```
+
+We can clearly see an outlier that is most likely a data error so we will impute the data point with the mean of the other data for the same month.
+
+
+```{r}
+powerdata$MONTH <- month(powerdata$DATE)
+
+# Remove NA in Sept 2008
+powerdata[is.na(powerdata$KWH),]
+
+powerdata$KWH[is.na(powerdata$KWH)] <- mean(powerdata$KWH[powerdata$MONTH==9], na.rm = TRUE)
+
+# Outlier is in July 2010
+powerdata[powerdata$KWH==min(powerdata$KWH),]
+
+powerdata$KWH[powerdata$KWH==min(powerdata$KWH)] <- mean(powerdata$KWH[powerdata$MONTH==7], na.rm = TRUE)
+```
+
+**Convert to a Time Series:**
+
+```{r}
+power_ts <- ts(powerdata$KWH, start = c(1998,1), frequency = 12)
+
+# Plot data
+autoplot(power_ts) + theme(panel.background = element_blank()) +
+  ggtitle("Residential Power Usage") +
+  xlab("Time") + 
+  ylab("Power Usage (in KWH)")
+```
+
+```{r}
+# Time plot
+power_ts %>% ggtsdisplay(main = "Residential Power Usage"
+                         ,xlab = "Time"
+                         ,ylab = "Power Usage (in KWH)")
+
+ndiffs(power_ts)
+
+ndiffs(power_ts)
+
+power_lambda <- BoxCox.lambda(power_ts)
+
+cat("Box Cox Transformation factor lambda=",power_lambda)
+```
+
+We can see annual seasonality in the data -
+
+```{r}
+power_ts %>% BoxCox(power_lambda) %>% diff(lag=12) %>% ggtsdisplay(main = "Residential Power Usage - w/ Box Cox Transform + Seasonal Differencing"
+                         ,xlab = "Time"
+                         ,ylab = "Power Usage (in KWH)")
+```
+
+The series is stationary, so no non-seasonal differencing is needed. The decaying seasonal spikes in the PACF suggests a seasonal AR(1) component, while the very quickly-decaying seasonal spikes in the ACF suggest the possibility of a seasonal MA(1) component. Spikes in the PACF and ACF at k=1 and k=4 suggest non-seasonal AR(1) or AR(4) components, and non-seasonal MA(1) or MA(4) components. 
+
+#### Model1: Holt-Winters w/ Box Cox 
+
+```{r}
+power_model_fit1 <- power_ts %>% hw(h=12, seasonal="additive", 
+                           damped=TRUE, lambda = power_lambda)
+autoplot(power_model_fit1) + theme(panel.background = element_blank()) +
+  ggtitle("Holt-Winters Damped Additive Method w/ Box Cox Transofrm") +
+  xlab ("Time") +
+  ylab ("Power Usage (in KWH)")
+  
+```
+
+##### Model1 Accuracy
+
+```{r}
+power_accuracyDF <- data.frame(Model = "Holt-Winter's Additive Method with Box-Cox Transform", accuracy(power_model_fit1), row.names = NULL)
+
+power_accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model1 Residual
+
+```{r}
+checkresiduals(power_model_fit1)
+```
+
+The residuals plot looks not too bad, but Ljung-Box test has an extremely small p-value indicating that there is still some autocorrelation in our data as we saw in the plot of the transformed data. Our forecast plot looks not too bad either although those confidence intervals extend way past what we have seen historically in the data.
+
+#### Model2: ETS
+
+```{r}
+power_model_fit2 <- power_ts %>% ets(model="ZZZ", lambda = power_lambda)
+
+autoplot(power_model_fit2) + theme(panel.background = element_blank())
+
+autoplot(forecast(power_model_fit2, h=12)) + theme(panel.background = element_blank()) +
+  ggtitle("ETS method w/ Box Cox Transofrm") +
+  xlab ("Time") +
+  ylab ("Power Usage (in KWH)")
+
+```
+
+##### Model2 Accuracy
+
+```{r}
+power_accuracyDF <- rbind(power_accuracyDF,data.frame(Model = "ETS Method with Box-Cox Transform", accuracy(power_model_fit2), row.names = NULL))
+
+power_accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model2 Residual
+
+```{r}
+checkresiduals(power_model_fit2)
+```
+
+The ETS model produced a slightly better RMSE than Holt Winter's model.
+
+#### Model3: ARIMA
+
+```{r}
+power_model_fit3 <- auto.arima(power_ts,stepwise=FALSE, approximation=FALSE)
+
+autoplot(forecast(power_model_fit3, h=12)) + theme(panel.background = element_blank()) +
+  xlab ("Weeks") +
+  ylab ("Power Usage (in KWH)")
+```
+
+##### Model3 Accuracy
+
+```{r}
+power_accuracyDF <- rbind(power_accuracyDF,data.frame(Model = "ARIMA (0,0,3)(2,1,0)[12]", accuracy(power_model_fit3), row.names = NULL))
+
+power_accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model3 Residual
+
+```{r}
+checkresiduals(power_model_fit3)
+```
+
+**auto.arima()** function produced better RMSE than the other two methods. So we will use this model fit to forecast.
+
+#### Results:
+
+```{r}
+power_forecast <- forecast(power_model_fit3, h=12)
+
+tibble(`YYYY-MMM` = paste0(2014, "-", month.abb),
+       KWH = power_forecast$mean) %>% 
+write_csv("Power_Forecast.csv")
+
+```
+
+## PART C: BONUS - Water Pipeline Datasets
+
+Part C consists of two data sets. These are simple 2 columns sets, however they have different time stamps. Optional assignment is to time-base sequence the data and aggregate based on hour (example of what this looks like, follows). Note for multiple recordings within an hour, take the mean. Then to determine if the data is stationary and can it be forecast. If so, provide a week forward forecast and present results via Rpubs and .rmd and the forecast in an Excel readable file.
+
+```{r fig.height=10, fig.width=10}
+# Dataset1
+waterdata1 <- readxl::read_excel("Waterflow_Pipe1.xlsx", skip=0)
+colnames(waterdata1) <- c("DateTimeNbr","WaterFlow")
+
+waterdata1 %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+# Dataset2
+waterdata2 <- readxl::read_excel("Waterflow_Pipe2.xlsx", skip=0)
+colnames(waterdata2) <- c("DateTimeNbr","WaterFlow")
+
+waterdata2 %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+#### Data Pre-Processing:
+
+In order to use the two datasets together, the readings for pipeline1 must be converted to -
+ - Separate date & hour components of readings
+ - Convert hour to hour-ending to match pipeline2
+ - Get average reading for each date & hour
+ - Convert back to DateTime and drop separate date/hour columns
+ 
+
+```{r}
+waterdata1$DateTime <-  as.POSIXct(waterdata1$DateTimeNbr*(60*60*24),origin="1899-12-30", tz="GMT")
+
+waterdata1 <- waterdata1 %>% mutate(DATE = date(DateTime),HOUR = hour(DateTime) + 1) %>% group_by(DATE, HOUR) %>% summarise(WaterFlow = mean(WaterFlow)) %>% ungroup() %>% mutate(DateTime = ymd_h(paste(DATE, HOUR))) %>% select(DateTime, WaterFlow)
+
+waterdata2 <- waterdata2 %>% mutate(DateTime = round(as.POSIXct(DateTimeNbr*(60*60*24),origin="1899-12-30", tz="GMT"),"hours"))  %>% select(DateTime, WaterFlow)
+
+```
+
+Now, I have joined the two datasets together and converted to a time series object -
+
+  - Join based on common DateTime column
+  - sum the WaterFlow to calculate total flow by hour
+
+```{r}
+# create df with both observations for each hour
+waterdata <- full_join(waterdata1, waterdata2, by = "DateTime", suffix = c("_1", "_2")) %>% mutate(WaterFlow_1 = ifelse(is.na(WaterFlow_1), 0, WaterFlow_1)) %>% mutate(WaterFlow = WaterFlow_1 + WaterFlow_2) %>% select(DateTime, WaterFlow)
+
+# create hourly timeseries object
+#waterdata_ts <- ts(waterdata$WaterFlow, frequency = 24)
+
+waterdata_ts <- xts(waterdata %>% select(-DateTime), order.by = waterdata$DateTime)
+```
+
+#### Time plot
+
+```{r}
+ waterdata_ts %>% ggtsdisplay(main = "Hourly waterflow Pipeline1 + Pipeline2"
+                         ,xlab = "Days"
+                         ,ylab = "Total waterflow")
+```
+
+#### Observations:
+
+ - There is an initial downward trend in the data uptill Day 10, but after that there is no observable trend.
+ - No apparent seasonality present in data 
+ - The variance is more or less constant across time range.
+ - No apparent anomalies or outliers.
+ 
+From the initial plot data doesn't look completely stationary even though absence of seasonality and constant variance are good signs. Hence I will perform Box Cox transformation and evaluate 1st order differencing needs to convert the data to stationary.
+
+```{r}
+ndiffs(waterdata_ts)
+
+water_lambda <- BoxCox.lambda(waterdata_ts)
+
+cat("Box Cox Transformation factor lambda=",water_lambda)
+```
+ 
+```{r}
+ waterdata_ts %>% BoxCox(water_lambda) %>% diff() %>% ggtsdisplay(main = "Hourly Waterflow w/ Box Cox + Differencing"
+                         ,xlab = "Days"
+                         ,ylab = "Total Waterflow")
+
+```
+With the Box Cox transformation and 1st order differencing applied, data does appear stationary. Hence we can apply non-season ARIMA with d=1. Also, since ACF and PACF plots both have largest spike at lag=1, so we can assume AR(1) (p=1) and MA(1) (q=1) etc. So we can use an ARIMA (1,1,1) model to forecast the waterflow for the upcoming week. 
+
+#### ARIMA Model:
+
+```{r}
+water_model_fit <- Arima(waterdata_ts, order = c(1, 1, 1), lambda = water_lambda)
+
+autoplot(forecast(water_model_fit, h=7*24)) + theme(panel.background = element_blank()) +
+  xlab ("Days") +
+  ylab ("Total Waterflow")
+```
+
+##### Model Accuracy
+
+```{r}
+accuracyDF <- data.frame(Model = "ARIMA (1,1,1)", accuracy(water_model_fit), row.names = NULL)
+
+accuracyDF %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="200px")
+
+```
+
+##### Model Residual
+
+```{r}
+checkresiduals(water_model_fit)
+```
+
+From Ljung-Box test, the p-Value is 0.9514 which is sufficiently higher than 0.05. So it can be safe to reject the null hypothesis that residuals are not independent and hence the model meets the assumption and generate quality forecast.
+
+#### Results:
+
+```{r}
+water_forecast <- forecast(water_model_fit, h=7*24)
+
+tibble(`DateTime` = seq(as.POSIXct("2015-12-03 17:00:00",origin="1899-12-30", tz="GMT"), length=7*24, by="hours"),
+       WaterFlow = water_forecast$mean) %>% 
+write_csv("Water_Forecast.csv")
+
+```
+
+
