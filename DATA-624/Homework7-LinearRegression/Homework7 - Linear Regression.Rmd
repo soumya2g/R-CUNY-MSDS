@@ -1,0 +1,534 @@
+---
+title: "DATA 624 - Homework7 - Linear Regression"
+author: "Soumya Ghosh"
+date: "October 27, 2020"
+always_allow_html: yes
+output:
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r warning=FALSE, message=FALSE}
+library(kableExtra)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(TSstudio)
+library(RColorBrewer)
+library(GGally)
+library(grid)
+library(gridExtra)
+library(mlbench)
+library(psych)
+library(cowplot)
+library(corrplot)
+library(caret)
+library(geoR)
+library(reshape)
+library(naniar)
+library(mice)
+library(DMwR)
+library(AppliedPredictiveModeling)
+library(pls)
+library(glmnet)
+library(elasticnet)
+
+```
+
+## Applied Predictive Modeling
+
+### Exercise 6.2
+
+Developing a model to predict permeability (see Sect. 1.4) could save significant resources for a pharmaceutical company, while at the same time more rapidly identifying molecules that have a sufficient permeability to become a drug: 
+
+a) Start R and use these commands to load the data:
+**> library(AppliedPredictiveModeling)**
+**> data(permeability)**
+
+The matrix **fingerprints** contains the 1,107 binary molecular predictors for the 165 compounds, while **permeability** contains permeability response.
+
+```{r}
+data(permeability)
+
+permeability %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(width="100%",height="300px")
+```
+
+b) The fingerprint predictors indicate the presence or absence of substructures of a molecule and are often sparse meaning that relatively few of the molecules contain each substructure. Filter out the predictors that have low frequencies using the **nearZeroVar()** function from the caret package. How many predictors are left for modeling?
+
+### Fingerprints Data Set
+
+```{r}
+fingerprints %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(width="100%",height="300px")
+```
+
+
+### Near Zero Variance Predictors for Fingerprints
+
+```{r}
+nZVIndices <- nearZeroVar(fingerprints)
+
+cat("No. of Columns with near zero variance:",length(nZVIndices))
+
+### Removing the near zero variance predictors from the dataset
+
+fingerprintsTrans <- as.data.frame(fingerprints[,-nZVIndices])
+#fingerprintsTrans <- fingerprints[,-nZVIndices]
+cat("No. of predictors left in the data set:", ncol(fingerprintsTrans))
+
+```
+
+c) Split the data into a training and a test set, pre-process the data, and tune a PLS model. How many latent variables are optimal and what is the corresponding resampled estimate of ${ R }^{ 2 }$?
+
+### Reduce predictors with high correlation
+
+```{r}
+corThresh <- 0.9
+tooHigh <- findCorrelation(cor(fingerprintsTrans), corThresh)
+corrPred <- names(fingerprintsTrans)[tooHigh]
+fingerprintsTrans <- fingerprintsTrans[,-tooHigh]
+
+```
+
+### Train/Test strategy
+
+Considering the fact that no. of predictors (388) is actually much higher than the data sample size (165), I am going to use a 80-20 split for train/test, and then I am planning to use a k fold cross validation (CV) as a viable resampling strategy for model fitting.
+
+```{r}
+## Merging the permeability dataset with fingerprints
+fingerprintsTrans$permeability <- permeability
+
+trainingrows <- createDataPartition(fingerprintsTrans$permeability, times = 1, p = 0.8, list = FALSE)
+
+trainData <- fingerprintsTrans[trainingrows,]
+testData <- fingerprintsTrans[-trainingrows,]
+
+```
+
+### Pre-Processing
+
+Since in this case, all the finegrprint predictors are binary in nature, pre-processing will have very little accomplishment with pre-processing steps like Box Cox, Center, Scale etc.
+
+### PLS Model Training
+
+I have used **train()** function to fit a Partial Least Square (PLS) model with k-fold cross validation estimate, and 10 components as below - 
+
+```{r}
+ctrl <- trainControl("cv", number = 10)
+
+pls_model_fit <- train(permeability ~ ., data = trainData,
+                   method = "pls",
+                   tuneLength = 25,
+                   trControl = ctrl,
+                   preProc = c("center", "scale"))
+
+summary(pls_model_fit)
+
+# Plot model RMSE vs different values of components
+title <- paste("Training Set RMSE Minimized at",
+               pls_model_fit$bestTune$ncomp,
+               "Components")
+
+plot(pls_model_fit, main = title)
+
+```
+
+### Estimated No. of latent variables (components)
+
+```{r}
+nComp <- pls_model_fit$bestTune$ncomp
+  
+cat("Optimal no. of latent variables:", nComp)
+
+```
+
+### Estimate of ${ R }^{ 2 }$
+
+```{r}
+pls_model_fit$results %>%
+  filter(ncomp == pls_model_fit$bestTune$ncomp) %>%
+  select(ncomp, RMSE, Rsquared) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(width="100%",height="150px")
+```
+
+
+Based on above, the optimal no. of latent variables are 6 and they explain 54% of the variance.
+
+d) Predict the response for the test set. What is the test set estimate of ${ R }^{ 2 }$?
+
+### Prediction on Test Data
+
+```{r}
+plsPredict <- predict(pls_model_fit, newdata = testData)
+
+plsPredict
+
+```
+### Plot for PLS Rediction
+
+```{r}
+plot(testData$permeability, plsPredict, ylim=c(-20,80), xlim=c(-20,80),main="Test Dataset", xlab="observed", ylab="PLS Predicted")
+abline(0, 1, col="red")
+```
+
+
+### Estimate of ${ R }^{ 2 }$
+
+```{r}
+results <- data.frame(Model = "PLS",
+                      RMSE = caret::RMSE(plsPredict, testData$permeability),
+                      Rsquared = caret::R2(plsPredict, testData$permeability))
+
+results %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(width="100%",height="150px")
+```
+
+Test set estimate of ${ R }^{ 2 }$ is 75%.
+
+e) Try building other models discussed in this chapter. Do any have better predictive performance?
+
+### Model2: Principal Component Regression (PCR) Model
+
+```{r}
+pcr_model_fit <- train(
+  permeability ~ ., data = trainData, method = "pcr",
+  center = TRUE,
+  trControl = ctrl,
+  tuneLength = 25
+)
+
+summary(pcr_model_fit)
+
+# Plot model RMSE vs different values of components
+title <- paste("Training Set RMSE Minimized at",
+               pcr_model_fit$bestTune$ncomp,
+               "Components")
+
+plot(pcr_model_fit, main = title)
+
+```
+
+#### PCR Model Predition and Metrics
+
+```{r}
+
+pcr_predictions <- predict(pcr_model_fit, testData)
+
+pcr_results <- data.frame(Model = "PCR",
+                          RMSE = caret::RMSE(pcr_predictions, testData$permeability),
+                          Rsquared = caret::R2(pcr_predictions, testData$permeability))
+
+pcr_results %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(width="100%",height="150px")
+
+
+```
+
+
+#### Model3: Ridge Regression
+
+I have used **enet()** function of **elasticnet** package with lambda argument specifying the ridge-regression penalty -
+
+```{r}
+ridgeModel <- enet(x = as.matrix(trainData[,-ncol(trainData)]), y = trainData$permeability, lambda = 0.001)
+
+summary(ridgeModel)
+
+plot(ridgeModel)
+
+```
+
+#### Ridge Regression Model Predition and Metrics
+
+```{r}
+
+ridgePred <- predict(ridgeModel, newx = as.matrix(testData), s = 1, mode = "fraction", type = "fit")
+
+
+
+df <- as.data.frame(ridgePred$fit, row.names = NULL, col.names=c("Index","Pred"))
+
+ridge_results <- data.frame(Model = "Ridge Regression",
+                          RMSE = caret::RMSE(df$`ridgePred$fit`, testData$permeability),
+                          Rsquared = caret::R2(df$`ridgePred$fit`, testData$permeability))
+
+ridge_results %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(width="100%",height="150px")
+
+```
+Further to tune over the penalty term lambda, **train()** can be used with a different method -
+
+```{r}
+ridgeGrid <- data.frame(.lambda = seq(0, .1, length = 15))
+
+ctrl <- trainControl(method = "cv", number = 10)
+
+ridgeRegFit <- train(permeability~.,data = trainData, method = "ridge", tuneGrid = ridgeGrid, trControl = ctrl, preProc = c("center", "scale"))
+
+ridgeRegFit
+```
+
+### Model4: Lasso Regression Model
+
+```{r}
+lr_cv <- cv.glmnet(as.matrix(trainData[,-ncol(trainData)]), trainData$permeability, alpha = 1)
+lr_model <- glmnet(as.matrix(trainData[,-ncol(trainData)]), trainData$permeability, alpha = 1, lambda = lr_cv$lambda.min)
+
+summary(lr_model)
+
+
+```
+
+### Lasso Regression Model Prediction and Results
+
+```{r}
+
+
+lr_predictions <- as.vector(predict(lr_model, as.matrix(testData[,-ncol(testData)])))
+lr_results <- data.frame(Model = "Lasso Regression",
+                         RMSE = caret::RMSE(lr_predictions, testData$permeability),
+                         Rsquared = caret::R2(lr_predictions, testData$permeability))
+
+lr_results %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(width="100%",height="150px")
+```
+
+### Model5: Elastic Net Regression
+
+```{r}
+en_model_fit <- train(
+  permeability ~ ., data = trainData, method = "glmnet",
+  trControl = ctrl,
+  tuneLength = 10
+)
+
+summary(en_model_fit)
+
+plot(en_model_fit)
+```
+
+#### Model Prediction and Results
+
+```{r}
+en_predictions <- en_model_fit %>% predict(testData[,-ncol(testData)])
+# Model performance metrics
+en_results <- data.frame(Model = "Elastic Net Regression",
+                         RMSE = caret::RMSE(en_predictions, testData$permeability),
+                         Rsquared = caret::R2(en_predictions, testData$permeability))
+
+en_results %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(width="100%",height="150px")
+```
+
+
+f) Would you recommend any of your models to replace the permeability laboratory experiment?
+
+```{r}
+model_results <- rbind(results, pcr_results, ridge_results, lr_results, en_results)
+
+rownames(model_results) <- NULL
+
+model_results %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(width="100%",height="300px")
+```
+
+Out of all the models, the one that produce the best ${ R }^{ 2 }$ is Elastic Net. Hence I propose using that model for predicting permeability and this model can replace the lab expreiment after further tuning.
+
+
+### Exercise 6.3
+
+A chemical manufacturing process for a pharmaceutical product was discussed in Sect. 1.4. In this problem, the objective is to understand the relationship between biological measurements of the raw materials (predictors), measurements of the manufacturing process (predictors), and the response of product yield. Biological predictors cannot be changed but can be used to assess the quality of the raw material before processing. On the other hand, manufacturing process predictors can be changed in the manufacturing process.
+Improving product yield by 1% will boost revenue by approximately one hundred thousand dollars per batch:
+
+a) Start R and use these commands to load the data:
+
+**> library(AppliedPredictiveModeling)**
+**> data(chemicalManufacturing)**
+
+The matrix **processPredictors** contains the 57 predictors (12 describing the input biological material and 45 describing the process predictors) for the 176 manufacturing runs. yield contains the percent yield for each run.
+
+### Data set Preview
+
+```{r}
+
+data(ChemicalManufacturingProcess)
+
+ChemicalManufacturingProcess %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(width="100%",height="300px")
+
+```
+
+### Statistical Summary of the data set
+
+```{r}
+stat_desc <- function(df){
+df %>% 
+    describe() %>%
+    kbl() %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+    scroll_box(width="100%",height="350px")
+}
+
+stat_desc(ChemicalManufacturingProcess)
+```
+
+b) A small percentage of cells in the predictor set contain missing values. Use an imputation function to fill in these missing values (e.g., see Sect. 3.8).
+
+### Missing Value Analysis
+
+```{r}
+## Counts of missing data per feature
+train_na_df <- data.frame(apply(ChemicalManufacturingProcess, 2, function(x) length(which(is.na(x)))))
+train_na_df1 <- data.frame(apply(ChemicalManufacturingProcess, 2,function(x) {sum(is.na(x)) / length(x) * 100}))
+
+train_na_df <- cbind(Feature = rownames(train_na_df), train_na_df, train_na_df1)
+colnames(train_na_df) <- c('Feature Name','No. of NA Recocrds','Percentage of NA Records')
+rownames(train_na_df) <- NULL
+
+
+train_na_df%>% filter(`No. of NA Recocrds` != 0) %>% arrange(desc(`No. of NA Recocrds`)) %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% scroll_box(width="100%",height="300px")
+
+```
+
+### Imputation Process
+
+#### K Nearest Neighbor Technique
+
+I have adopted the KNN approach for imputation for the current data set using the **knnImputation()** fruntion from **DMwR** package. I am using k=10 as a tuning parameter.
+
+```{r}
+ChemicalManProcessImputed <- knnImputation(ChemicalManufacturingProcess, k = 10)
+
+```
+
+c) Split the data into a training and a test set, pre-process the data, and tune a model of your choice from this chapter. What is the optimal value of the performance metric?
+
+### Pre-Processing
+
+#### Excluding Near Zero Variance Predictors
+
+```{r}
+nZVIndices <- nearZeroVar(ChemicalManProcessImputed)
+
+ChemicalManProcessTransformed <- ChemicalManProcessImputed[,-nZVIndices]
+
+```
+
+#### Excluding highly Correlated Predictors
+
+```{r}
+corThresh <- 0.9
+tooHigh <- findCorrelation(cor(ChemicalManProcessTransformed), corThresh)
+corrPred <- names(ChemicalManProcessTransformed)[tooHigh]
+ChemicalManProcessTransformed <- ChemicalManProcessTransformed[,-tooHigh]
+
+```
+
+### Test/Train Split
+
+```{r}
+trainingRows <- createDataPartition(ChemicalManProcessTransformed$Yield, times = 1, p = 0.8, list = FALSE)
+
+train_df <- ChemicalManProcessTransformed[trainingRows,]
+test_df <- ChemicalManProcessTransformed[-trainingRows,]
+
+```
+
+### PLS Model Training
+
+```{r}
+## Using k fold cross validation with parameter 10
+ctrl <- trainControl("cv", number = 10)
+
+model_fit <- train(Yield ~ ., data = train_df, 
+                   method = "pls",
+                   tuneLength = 25,
+                   trControl = ctrl,
+                   preProc = c("center", "scale"))
+
+summary(model_fit)
+
+# Plot model RMSE vs different values of components
+title <- paste("Training Set RMSE Minimized at",
+               model_fit$bestTune$ncomp,
+               "Components")
+
+plot(model_fit, main = title)
+
+```
+
+### Model Performance Metrics 
+
+```{r}
+model_fit$results %>%
+  filter(ncomp == model_fit$bestTune$ncomp) %>%
+  select(ncomp, RMSE, Rsquared)
+```
+
+d) Predict the response for the test set.What is the value of the performance metric and how does this compare with the resampled performance metric on the training set?
+
+### Model Predictions
+
+```{r}
+# Make predictions
+pls_predictions <- predict(model_fit, test_df)
+# Model performance metrics
+results <- data.frame(RMSE = caret::RMSE(pls_predictions, test_df$Yield),
+           Rsquared = caret::R2(pls_predictions, test_df$Yield))
+results
+```
+
+The RMSE of the predictions is 0.665027 which is better than the RMSE of the trainng set 0.625914. Normally test set RMSE is expected to be lower than the training set.
+
+e) Which predictors are most important in the model you have trained? Do either the biological or process predictors dominate the list?
+
+### Important Predictors
+
+```{r}
+pls_importance <- varImp(model_fit)$importance %>% 
+  as.data.frame() %>%
+  rownames_to_column("Variable") %>%
+  filter(Overall >= 50) %>%
+  arrange(desc(Overall)) %>%
+  mutate(importance = row_number())
+
+varImp(model_fit) %>%
+  plot(, top = max(pls_importance$importance), main = "Important Variables")
+```
+
+From the chart above, it looks like Manufacturing Process related predictors dominate the list of most important predictors.
+
+f) Explore the relationships between each of the top predictors and the response. How could this information be helpful in improving yield in future runs of the manufacturing process?
+
+### Correlation Plot of Most Important Predictors
+
+```{r fig.height=8,fig.width=8}
+corrdf <- ChemicalManProcessTransformed[,pls_importance$Variable]
+
+corrdf$Yield <- ChemicalManProcessTransformed["Yield"]
+
+corrMatrix <- round(cor(corrdf),4)
+
+corrMatrix %>% corrplot::corrplot(., method = "color", outline = T, addgrid.col = "darkgray", order="hclust", addrect = 4, rect.col = "black", rect.lwd = 5,cl.pos = "b", tl.col = "indianred4", tl.cex = 1.0, cl.cex = 1.0, addCoef.col = "white", number.digits = 2, number.cex = 0.8, col = colorRampPalette(c("darkred","white","dodgerblue4"))(100))
+```
+
+
+From the above Correlation plot, it can be observed that -
+
+ - Manufacturing Processes 32, 09, 33 etc. and Biological materials 06 and 03 have strong positive correlations with Yield. 
+ - Whereas Manufacturing Processes 36, 13 and 17 have strong negative correlations with Yield.
