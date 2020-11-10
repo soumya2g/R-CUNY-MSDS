@@ -1,0 +1,438 @@
+---
+title: "DATA 624 - Homework8 - Non-Linear Regression"
+author: "Soumya Ghosh"
+date: "November 06, 2020"
+always_allow_html: yes
+output:
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r warning=FALSE, message=FALSE}
+library(kableExtra)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(TSstudio)
+library(RColorBrewer)
+library(GGally)
+library(grid)
+library(gridExtra)
+library(mlbench)
+library(psych)
+library(cowplot)
+library(corrplot)
+library(caret)
+library(geoR)
+library(reshape)
+library(naniar)
+library(mice)
+library(DMwR)
+library(AppliedPredictiveModeling)
+library(pls)
+library(glmnet)
+library(elasticnet)
+library(earth)
+library(kernlab)
+```
+
+## Applied Predictive Modeling
+
+### Exercise 7.2
+
+Friedman (1991) introduced several benchmark data sets create by simulation. One of these simulations used the following nonlinear equation to create data: 
+
+$y=10\sin { (\pi { x }_{ 1 }{ x }_{ 2 }) } +20{ ({ x }_{ 3 }-0.5) }^{ 2 }+10{ x }_{ 4 }+5{ x }_{ 5 }+N(0,{ \sigma  }^{ 2 })$
+
+where the x values are random variables uniformly distributed between [0, 1] (there are also 5 other non-informative variables also created in the simulation). The package mlbench contains a function called **mlbench.friedman1** that simulates these data:
+
+```{r}
+set.seed(200)
+
+trainingData <- mlbench.friedman1(200, sd = 1)
+
+## We convert the 'x' data from a matrix to a data frame. One reason is that this will give the columns names.
+trainingData$x <- data.frame(trainingData$x)
+
+## Look at the data using
+featurePlot(trainingData$x, trainingData$y)
+
+## or other methods.This creates a list with a vector 'y' and a matrix
+## of predictors 'x'. Also simulate a large test set to
+## estimate the true error rate with good precision:
+testData <- mlbench.friedman1(5000, sd = 1)
+testData$x <- data.frame(testData$x)
+```
+
+Tune several models on these data. For example:
+
+#### KNN Model
+
+```{r}
+knnModel <- train(x = trainingData$x,
+                  y = trainingData$y,
+                  method = "knn",
+                  preProc = c("center", "scale"),
+                  tuneLength = 10)
+
+knnModel
+
+knnPred <- predict(knnModel, newdata = testData$x)
+
+## The function 'postResample' can be used to get the test set
+## perforamnce values
+postResample(pred = knnPred, obs = testData$y)
+```
+
+
+Which models appear to give the best performance? Does MARS select the informative predictors (those named X1–X5)?
+
+#### MARS Model
+
+```{r}
+MARS_grid <- expand.grid(.degree = 1:2, .nprune = 2:15)
+MARS_model <- train(x = trainingData$x, 
+                  y = trainingData$y,
+                  method = "earth",
+                  tuneGrid = MARS_grid,
+                  preProcess = c("center", "scale"),
+                  tuneLength = 10)
+MARS_model
+```
+
+The optimal MARS model minimized the RMSE when the nprune = 14 and the degree = 2.
+
+```{r}
+MARS_predictions <- predict(MARS_model, newdata = testData$x)
+postResample(pred = MARS_predictions, obs = testData$y)
+
+```
+
+The RMSE of the MARS model is a lot lower than the KNN model. 
+
+##### Variable Importance Check
+
+Let’s see what variables are important for MARS Model -
+
+```{r}
+varImp(MARS_model)
+```
+The MARS model picks up the X1-X5 variables.
+
+#### SVM Model
+
+```{r}
+SVM_model <- train(x = trainingData$x,
+                   y = trainingData$y,
+                   method = "svmRadial",
+                   preProcess = c("center", "scale"),
+                   tuneLength = 10,
+                   trControl = trainControl(method = "cv"))
+
+
+SVM_model
+
+```
+
+The optimal SVM mdoel has a σ of 0.07 and an C of 16.
+
+```{r}
+SVM_predictions <- predict(SVM_model, newdata = testData$x)
+postResample(pred = SVM_predictions, obs = testData$y)
+```
+
+##### Variable Importance Check
+
+```{r}
+varImp(SVM_model)
+```
+
+The SVM picked up the important variables.
+
+#### Neural Network Model
+
+```{r warning=FALSE, error=FALSE}
+nnet_grid <- expand.grid(.decay = c(0, 0.01, .1), .size = c(1:10), .bag = FALSE)
+nnet_maxnwts <- 5 * (ncol(trainingData$x) + 1) + 5 + 1
+nnet_model <- train(x = trainingData$x,
+                    y = trainingData$y,
+                    method = "avNNet",
+                    preProcess = c("center", "scale"),
+                    tuneGrid = nnet_grid,
+                    trControl = trainControl(method = "cv"),
+                    linout = TRUE,
+                    trace = FALSE,
+                    MaxNWts = nnet_maxnwts,
+                    maxit = 500)
+nnet_model
+```
+
+The best neural network has a size = 3 and a decay of 0.
+
+```{r}
+nnet_predictions <- predict(nnet_model, newdata = testData$x)
+postResample(pred = nnet_predictions, obs = testData$y)
+```
+
+##### Variable Importance Check
+
+```{r}
+varImp(nnet_model)
+```
+
+The top 5 variables include the intended list of X1-X5 variables.
+
+#### Model Summary
+
+```{r}
+results <- data.frame(t(postResample(pred = knnPred, obs = testData$y))) %>% 
+  mutate("Model" = "KNN")
+
+results <- data.frame(t(postResample(pred = MARS_predictions, obs = testData$y))) %>%
+  mutate("Model"= "MARS") %>%
+  bind_rows(results)
+
+results <- data.frame(t(postResample(pred = SVM_predictions, obs = testData$y))) %>%
+  mutate("Model"= "SVM") %>%
+  bind_rows(results)
+
+results <- data.frame(t(postResample(pred = nnet_predictions, obs = testData$y))) %>%
+  mutate("Model"= "Neural Network") %>%
+  bind_rows(results)
+
+results %>%
+  select(Model, RMSE, Rsquared, MAE) %>%
+  arrange(RMSE) %>%
+  kable() %>%
+  kable_styling()
+```
+
+The MARS model preformed the best and identified the right variables as the important ones. The ${ R }^{ 2 }$ on it is extremely high. This model's performance with test data is pretty impressive.
+
+### Exercise 7.5
+
+Exercise 6.3 describes data for a chemical manufacturing process. Use the same data imputation, data splitting, and pre-processing steps as before and train several nonlinear regression models.
+
+
+#### Data set Preview
+
+```{r}
+
+data(ChemicalManufacturingProcess)
+
+ChemicalManufacturingProcess %>% kable() %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(width="100%",height="300px")
+
+```
+
+#### Imputation Process
+
+##### K Nearest Neighbor Technique
+
+I have adopted the KNN approach for imputation for the current data set using the **knnImputation()** fruntion from **DMwR** package. I am using k=10 as a tuning parameter.
+
+```{r}
+ChemicalManProcessImputed <- knnImputation(ChemicalManufacturingProcess, k = 10)
+
+```
+
+#### Pre-Processing
+
+##### Excluding Near Zero Variance Predictors
+
+```{r}
+nZVIndices <- nearZeroVar(ChemicalManProcessImputed)
+
+ChemicalManProcessTransformed <- ChemicalManProcessImputed[,-nZVIndices]
+
+```
+
+##### Excluding highly Correlated Predictors
+
+```{r}
+corThresh <- 0.9
+tooHigh <- findCorrelation(cor(ChemicalManProcessTransformed), corThresh)
+corrPred <- names(ChemicalManProcessTransformed)[tooHigh]
+ChemicalManProcessTransformed <- ChemicalManProcessTransformed[,-tooHigh]
+
+```
+
+#### Test/Train Split
+
+```{r}
+trainingRows <- createDataPartition(ChemicalManProcessTransformed$Yield, times = 1, p = 0.8, list = FALSE)
+
+train_df <- ChemicalManProcessTransformed[trainingRows,]
+test_df <- ChemicalManProcessTransformed[-trainingRows,]
+
+```
+
+#### Linear PLS Model
+
+```{r}
+pls_model <- train(
+  Yield ~ ., data = train_df, method = "pls",
+  center = TRUE,
+  scale = TRUE,
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 25
+)
+
+pls_model
+
+pls_predictions <- predict(pls_model, test_df)
+
+results_ <- data.frame(t(postResample(pred = pls_predictions, obs = test_df$Yield))) %>%
+  mutate("Model"= "PLS")
+
+```
+
+(a) Which nonlinear regression model gives the optimal resampling and test set performance?
+
+
+#### KNN Model
+
+```{r}
+KNN_Model <- train(
+                  Yield ~ ., data = train_df, method = "knn",
+                  center = TRUE,
+                  scale = TRUE,
+                  trControl = trainControl("cv", number = 10),
+                  tuneLength = 25)
+KNN_Model
+
+
+KNN_Pred <- predict(KNN_Model, newdata = test_df)
+
+results_ <- data.frame(t(postResample(pred = KNN_Pred, obs = test_df$Yield))) %>%
+  mutate("Model"= "KNN") %>% rbind(results_)
+```
+
+#### MARS Model
+
+```{r}
+MARS_grid <- expand.grid(.degree = 1:2, .nprune = 2:15)
+
+MARS_model <- train(
+  Yield ~ ., data = train_df, method = "earth",
+  tuneGrid = MARS_grid,
+  preProcess = c("center", "scale"),
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 25
+)
+MARS_model
+
+MARS_predictions <- predict(MARS_model, test_df)
+
+results_ <- data.frame(t(postResample(pred = MARS_predictions, obs = test_df$Yield))) %>%
+  mutate("Model"= "MARS") %>% rbind(results_)
+```
+
+#### SVM Model
+
+```{r}
+SVM_model <- train(
+  Yield ~ ., data = train_df, method = "svmRadial",
+  center = TRUE,
+  scale = TRUE,
+  trControl = trainControl(method = "cv"),
+  tuneLength = 25
+)
+SVM_model
+
+SVM_predictions <- predict(SVM_model, test_df)
+
+results_ <- data.frame(t(postResample(pred = SVM_predictions, obs = test_df$Yield))) %>%
+  mutate("Model"= "SVM") %>% rbind(results_)
+```
+
+#### Neural Network Model
+
+```{r warning=FALSE, error=FALSE}
+nnet_grid <- expand.grid(.decay = c(0, 0.01, .1), .size = c(1:10), .bag = FALSE)
+nnet_maxnwts <- 5 * ncol(train_df) + 5 + 1
+nnet_model <- train(
+  Yield ~ ., data = train_df, method = "avNNet",
+  center = TRUE,
+  scale = TRUE,
+  tuneGrid = nnet_grid,
+  trControl = trainControl(method = "cv"),
+  linout = TRUE,
+  trace = FALSE,
+  MaxNWts = nnet_maxnwts,
+  maxit = 500
+)
+
+nnet_model
+
+nnet_predictions <- predict(nnet_model, test_df)
+
+results_ <- data.frame(t(postResample(pred = nnet_predictions, obs = test_df$Yield))) %>%
+  mutate("Model"= "Neural Network") %>% rbind(results_)
+```
+
+#### Model Summary
+
+```{r}
+results_ %>%
+  select(Model, RMSE, Rsquared, MAE) %>%
+  arrange(RMSE) %>%
+  kable() %>%
+  kable_styling()
+```
+
+The SVM Model was the best non-linear model.
+
+(b) Which predictors are most important in the optimal nonlinear regression model? Do either the biological or process variables dominate the list? How do the top ten important predictors compare to the top ten predictors from the optimal linear model?
+
+#### Variable Importance: Non-Linear Model
+
+```{r}
+varImp(SVM_model, 10)
+```
+
+13 out of 20 most important variables are process related. So in a way they dominate the list over biological variables.
+
+#### Variable Importance: Linear Model
+
+```{r}
+varImp(pls_model, 10)
+```
+
+#### Observations
+
+ - **ManufacturingProcess13** is the most important variable in the SVM model, whereas **ManufacturingProcess32** shows up as most important in the PLS model.
+ - For both the models, process variables dominate the top 10 variables list.
+ - Most of the variables in top 10 overlap in both the models.
+
+(c) Explore the relationships between the top predictors and the response for the predictors that are unique to the optimal nonlinear regression model. Do these plots reveal intuition about the biological or process predictors and their relationship with yield?
+
+
+```{r}
+train_imp_df <- train_df %>% 
+              dplyr::select(ManufacturingProcess13, ManufacturingProcess32, BiologicalMaterial06, 
+                            ManufacturingProcess09, BiologicalMaterial03, ManufacturingProcess36, 
+                            ManufacturingProcess17, ManufacturingProcess06, ManufacturingProcess11, 
+                            BiologicalMaterial08, Yield)
+
+correlations <- cor(train_imp_df)
+corrplot::corrplot(correlations, order = "FPC", diag = TRUE)
+```
+
+ - The correlation plot illustrates some insight to these important variables.
+ - Yield has a mostly positive correlation with many of the processes but with only Manufacturing processes have Yield with the strongest negative correlation seen in top variables.
+ - Some very high correlations is noticed which it may implicate for possible issues of multi-collinearity.
