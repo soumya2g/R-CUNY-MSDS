@@ -1,0 +1,243 @@
+---
+title: "DATA 624 - Homework10 - Market Basket Analysis"
+author: "Soumya Ghosh"
+date: "November 29, 2020"
+always_allow_html: yes
+output:
+  html_document:
+    df_print: kable
+    theme: cerulean
+    highlight: pygments
+    css: ./lab.css
+    toc: true
+    toc_float:
+      collapsed: true
+    toc_depth: 5
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r warning=FALSE, message=FALSE}
+library(kableExtra)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(TSstudio)
+library(RColorBrewer)
+library(GGally)
+library(grid)
+library(gridExtra)
+library(mlbench)
+library(psych)
+library(cowplot)
+library(corrplot)
+library(caret)
+library(geoR)
+library(reshape)
+library(naniar)
+library(mice)
+library(DMwR)
+library(AppliedPredictiveModeling)
+library(pls)
+library(glmnet)
+library(elasticnet)
+library(earth)
+library(kernlab)
+library(randomForest)
+library(vip)
+library(party)
+library(Cubist)
+library(gbm)
+library(rpart.plot)
+library(arulesViz)
+```
+
+### Problem Statement
+
+Imagine 10000 receipts sitting on your table. Each receipt represents a transaction with items that were purchased. The receipt is a representation of stuff that went into a customer’s basket - and therefore ‘Market Basket Analysis’. That is exactly what the Groceries Data Set contains: a collection of receipts with each line representing 1 receipt and the items purchased. Each line is called a transaction and each column in a row represents an item.  The data set is attached.
+
+Your assignment is to use R to mine the data for association rules. You should report support, confidence and lift and your top 10 rules by lift. 
+
+```{r}
+grocTrans <- read.transactions('GroceryDataSet.csv', sep=',')
+summary(grocTrans)
+```
+
+### Top 20 Items Purchased
+
+```{r}
+itemFrequencyPlot(grocTrans, topN=20, col=brewer.pal(11,'RdBu'), type="absolute", main="Top 20 Grocery  Items")
+```
+
+
+In order to mine the association rules using the apriori() function in the arules package, the support and confidence parameters need to be determined. Setting the values too high will filter out many rules. Setting the values too low will introduce many trivial rules.
+
+Below, is a wrapper function that takes the transaction data and the desired support and confidence as input, and output the top N rules (default 10) mined using the Apriori algorithm.
+
+```{r}
+arFit <- function(data, support, confidence, topN=10, topOnly=TRUE){
+  rules <- apriori(data, parameter = list(support=support, confidence=confidence), control=list(verbose = FALSE)) 
+  rulesLen <- length(rules)
+  topRules <- head(rules, n=topN, by='lift')
+  topRules <- data.frame(lhs=labels(lhs(topRules)), rhs=labels(rhs(topRules)), topRules@quality)
+  ifelse(topOnly, return(topRules), return(list(rulesLen, topRules, rules)))
+}
+```
+
+Holding the confidence constant at 0.1, we can see the effects of support on the number of association rules found. As can be seen in the below plot, as support gets smaller, the number of rules increases exponentially.
+
+```{r}
+values <- seq(0.001, 0.1, by=0.001)
+numRules <- c()
+for (val in values){
+  fit <- arFit(grocTrans, support=val, confidence=0.1, topOnly = FALSE)
+  numRules <- c(numRules, fit[[1]])
+}
+plot(x=values, y=numRules, xlab='Support', ylab='Association Rules Found', type='l')
+```
+
+Holding the support constant at 0.001, we can also see that smaller the confident, more rules are found:
+
+```{r}
+values <- seq(0.1, 1, by=0.01)
+numRules <- c()
+for (val in values){
+  fit <- arFit(grocTrans, support=0.001, confidence=val, topOnly = FALSE)
+  numRules <- c(numRules, fit[[1]])
+}
+plot(x=values, y=numRules, xlab='Confidence', ylab='Association Rules Found', type='l')
+```
+
+After some trials, I found some interest rules setting minimum support to 0.002 and minimum confidence to 0.1. The support, confidence, and lift of the top 10 association rules with the aforementioned parameters are found below.
+
+```{r}
+rules <- arFit(grocTrans, 0.002, 0.1, topOnly = FALSE)
+rules[[2]]
+```
+
+The rules can be visualized using arulesViz package. A particular interesting visulization is the graph of the rules:
+
+```{r}
+subrules <- head(rules[[3]], n=10, by='lift')
+plot(subrules, method = 'graph')
+```
+
+These rules can help the grocery store in terms of product placement, advertisement, or promotion. For example, placing salty snacks next to popcorn, advertisement of certain brand of hamburger meat in the aisle for instant food products, etc.
+
+### Clustering Analysis
+
+First, the transaction data is converted into data frame. The goal is to cluster the items, with the transactions as dimensions. So the data frame will be 169 rows (items) by 9835 columns (transactions):
+
+```{r}
+df <- grocTrans@data %>% as.matrix()  %>% as.data.frame() 
+row.names(df) <- grocTrans@itemInfo$labels
+dim(df)
+```
+
+Next, I will try the kmeans function to perform K-means clustering. The centers parameter specifies the number of desired clusters. The nstart parameter repeats the algorithm for n times, each time with different set of initial centers; and pick the best one. The iter.max parameter specifies the maximum number of iteration.
+
+```{r}
+set.seed(1)
+cluster <- kmeans(df, centers=10, nstart=50, iter.max=20)
+str(cluster)
+
+```
+
+We can retrieve the clusters, and find the group distribution:
+
+```{r}
+cluster$cluster %>% table()
+```
+
+It appears most items are concerntrated in two groups - one with 21 items and the other with 138. Let’s take a look at the large groups:
+
+```{r}
+cluster$cluster[cluster$cluster==6]
+```
+
+It appears this group are all food and drink related items, with the exception of newspapers.
+
+```{r}
+cluster$cluster[cluster$cluster==9]
+```
+
+
+It’s difficult to find what these items share in common. The transaction data may not have enough information to distinguish these items into groups.
+
+Here’s what happen when we cluster the items into 20 centers:
+
+```{r}
+set.seed(1)
+kmeans(df, centers=20, nstart=50, iter.max=20)$cluster %>% table()
+```
+
+and 30 centers:
+
+```{r}
+set.seed(1)
+kmeans(df, centers=30, nstart=50, iter.max=20)$cluster %>% table()
+```
+
+
+As you can see, the items are still largely group under two main clusters. So increasing the number of cluster centers is not helpful.
+
+Next, I tried hierarchical clustering via hclust funtcion, using the “average” cluster method. Blow is the plot of the hierarchical structural of the groupping.
+
+```{r fig.width=10,fig.height=8}
+dist_mat <- dist(df, method = 'euclidean')
+hcluster <- hclust(dist_mat, method = 'average')
+plot(hcluster)
+```
+
+
+I used the function cutree to get the desired number of clusters (20):
+
+```{r}
+cutree(hcluster, 20) %>% table()
+```
+
+It appears that there is just one concentrated cluster using this method.
+
+Next, I tried the “ward.D” method of clustering:
+
+```{r fig.width=10,fig.height=6}
+hcluster <- hclust(dist_mat, method = 'ward.D')
+plot(hcluster)
+
+cutree(hcluster, 20) %>% table()
+```
+
+
+This clustering method is more interesting, separating the items into 4 large groups. We can extract these groups and take a look (Group 1, 2, 3, and 6). Again, it’s difficult to see what these items share in common in their respective groups.
+
+Below is Group 1 cluster:
+
+```{r}
+clusters <- cutree(hcluster, 20) %>% sort()
+names(clusters[clusters == 1])
+```
+
+Below is Group 2 cluster:
+
+```{r}
+names(clusters[clusters == 2])
+```
+
+Below is Group 3 cluster:
+
+```{r}
+names(clusters[clusters == 3])
+```
+
+
+Below is Group 6 cluster:
+
+```{r}
+names(clusters[clusters == 6])
+```
+
