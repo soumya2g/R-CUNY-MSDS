@@ -1,0 +1,791 @@
+---
+title: "DATA 624 Project #2"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(eval = FALSE)
+#install.packages("tictoc")
+#install.packages("PerformanceAnalytics")
+library(VIM)
+library(Hmisc)
+#Corr Plot
+library(corrplot)
+library(RColorBrewer)
+library(ggcorrplot)
+library(PerformanceAnalytics)
+library(magrittr)
+library(reshape2)
+library(ggplot2)
+
+#Data Imputation
+library(mice)
+
+#Train model
+library(caret)
+
+#Timing
+library(tictoc)
+
+set.seed(1978)
+```
+
+```{r, eval = TRUE}
+hist.data.frame <- function(x, ..., colors=rainbow(ncol(x))) {
+    col<-1
+    hist<-function(...) {
+        graphics::hist(..., col=colors[col])
+        col <<- col+1
+    }
+    f <- Hmisc:::hist.data.frame
+    environment(f) <- environment()
+    f(x,...)
+}
+```
+
+**Team Members:**
+
+*   *Soumya Ghosh*
+*   *Jose Mawyin*
+*   *Randy Thompson*
+
+# Project 2: Prediction of PH in Beverages 
+
+##   Problem Statement
+
+This is role playing.  I am your new boss.  I am in charge of production at ABC Beverage and you are a team of data scientists reporting to me.  My leadership has told me that new regulations are requiring us to understand our manufacturing process, the predictive factors and be able to report to them our predictive model of PH.
+
+Please use the historical data set I am providing.  Build and report the factors in BOTH a technical and non-technical report.  I like to use Word and Excel.  Please provide your non-technical report in a  business friendly readable document and your predictions in an Excel readable format.   The technical report should show clearly the models you tested and how you selected your final approach.
+
+Please submit both Rpubs links and .rmd files or other readable formats for technical and non-technical reports.  Also submit the excel file showing the prediction of your models for pH.
+
+\newpage
+###   Exploratory Analysis
+
+First we load our data. The data was provided in an excel document but for reproducibility, we've uploaded it to github so anyone can use the link. The column, “Brand.Code” is a categorical variable and so we change the data type to a factor. 
+
+```{r data, eval = TRUE}
+training_loc <- "https://raw.githubusercontent.com/JMawyin/DATA_624/master/Student_Data_train.csv"
+training_df <- read.csv(file = training_loc)
+training_df$Brand.Code <- as.factor(training_df$Brand.Code)
+test_loc <- "https://raw.githubusercontent.com/JMawyin/DATA_624/master/Student_Data_test.csv"
+test_df <- read.csv(file = test_loc)
+head(training_df)
+```
+
+In the next sections we do some exploratory data analysis. We get a list of the column names and explore the completeness of the data. One pattern we look for is to see if some rows or columns are more incomplete than others. These incomplete fields or records could be excluded or used as a dummy variable in the future.  
+
+
+
+
+
+```{r, eval = TRUE}
+hist(training_df$PH, col = "red", xlab = "PH of Beverage")
+```
+
+Above we can see that the PH distribution for all the brands combined follows a normal distribution. Below we can see that most of the observations belong to the **"B"** brand, there are 4 labeled brands and one unlabeled.
+
+```{r}
+ggplot(data = training_df) + 
+    geom_histogram(aes(x = PH, fill = Brand.Code), bins = 10, colour = "black") +
+    facet_wrap(~ Brand.Code)+
+  ggtitle("PH of Beverages by Brand")+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+
+```{r, eval = TRUE}
+cat("Dimensions of Training DF:\n",dim(training_df))
+cat("\n\nName of columns in Dataframe:\n")
+#colnames(training_df)
+```
+
+The size of the data used in this study consisted of 2571 observations, 32 predictors and one response variable (PH).
+
+```{r, eval = TRUE}
+colSums(is.na(training_df))
+```
+
+Above we can see the number of missing values (n.a.'s) in all the columns of the data set. Below we can see the distribution of the missing values in the data set and the percentage with respect all values. 
+
+```{r, eval = TRUE}
+plot <- aggr(training_df, col = c("green", "red"), 
+             numbers = TRUE, 
+             sortVars = TRUE)
+```
+
+
+```{r, eval = TRUE}
+#Moving the PH column to the front of the dataframe
+training_df <- training_df[,c(which(colnames(training_df)=="PH"),which(colnames(training_df)!="PH"))]
+
+```
+
+#### Histogram of variables in the data set
+
+Now we look at the distribution of each column. For modeling purposes, each column would idealy have a normal distribution so we are looking at which columns might be candidates for transformations.  
+
+```{r, eval = TRUE}
+hist(training_df[,1:9])
+```
+
+```{r, eval = TRUE}
+hist(training_df[,10:18])
+```
+
+```{r, eval = TRUE}
+hist(training_df[,19:27])
+```
+
+```{r, eval = TRUE}
+hist(training_df[,28:33])
+```
+
+
+
+We notice many columns are normally distributed, some have bimodal distributions, some are skewed with a long tail of outliers, and some only have values in intervals of 2’s or 10’s. In our model pre-processing, we may choose different transformations to normalize and standardize our data. One pattern that stands out is that many columns have a high number of zero variables. We can assume that there is some significance to these high number of zeros and there effect may be linear in nature. For these data we will create dummy variables based on a specified cutoff value.
+
+
+```{r}
+training_df_binary <- training_df
+training_df_binary$Air.Pressurer_bin <- ifelse(training_df_binary$Air.Pressurer > 145, 1, 0)
+training_df_binary$Balling.Lvl_bin <- ifelse(training_df_binary$Balling.Lvl > 2, 1, 0)
+training_df_binary$Balling_bin <- ifelse(training_df_binary$Balling > 2.5, 1, 0)
+training_df_binary$Density_bin <- ifelse(training_df_binary$Density > 1.25, 1, 0)
+training_df_binary$Hyd.Pressure1_bin <- ifelse(training_df_binary$Hyd.Pressure1 == 0, 0, 1)
+training_df_binary$Hyd.Pressure2_bin <- ifelse(training_df_binary$Hyd.Pressure2 == 0, 0, 1)
+training_df_binary$Hyd.Pressure3_bin <- ifelse(training_df_binary$Hyd.Pressure3 == 0, 0, 1)
+training_df_binary$Mnf.Flow_bin <- ifelse(training_df_binary$Mnf.Flow > 50, 0, 1)
+dim(training_df_binary)
+#hist(training_df_binary)
+#hist(training_df_binary$Hyd.Pressure3)
+```
+
+Here we observe the correlation between variables. Variables that are highly correlated offer limited additional insights for our model. Non-linear models typically handle these highly correlated values better than linear models. When looking for the most influential variables on our outcome variable, we will have to keep these in mind as well.
+
+```{r}
+corr <- model.matrix(~0+., data=training_df_binary) %>% 
+  cor(use="pairwise.complete.obs")
+ggplot(melt(corr), aes(Var1, Var2, fill=value)) +
+  geom_tile(height=0.8, width=0.8) +
+  scale_fill_gradient2(low="blue", mid="white", high="red") +
+  theme_minimal() +
+  coord_equal() +
+  labs(x="",y="",fill="Corr") +
+  theme(axis.text.x=element_text(size=8, angle=90, vjust=1, hjust=1, 
+                                 margin=ggplot2::margin(-3,0,0,0)),
+        axis.text.y=element_text(size=8, margin=ggplot2::margin(0,-3,0,0)),
+        panel.grid.major=element_blank()) 
+```
+
+As noted earlier, there are many missing variables from our model. Since many of the models we are planning on using will only use complete cases, we need to impute the missing data points. Occasionally missing data, when manually entered, can be assumed to be zero but we do not believe this to be the case. Some methods for handling missing data are using the mean, median, or mode. We will use a method called multivariate imputation by chained equations or MICE. MICE is a great imputation method because it preserves the relations within the data and the uncertainty about those relations. We use the argument m=5 to indicate that we will do 5 imputations, each with the same dataset but different imputed values, that will then be analyzed then pooled to ensure relations and uncertainty is maintained. The method pmm is short for predictive mean matching. These imputations are restricted to observed values so this method works for our categorical variable as well. This will preserve non-linear relationships and it is computationally faster than other MICE methods. 
+
+```{r}
+#Imputing using the pmm mehtod, creating 5 dataframes, do not print process
+imp_training <- mice(training_df_binary, m=5, method = 'pmm',print =  FALSE)
+ 
+# checking the summary
+summary(imp_training)
+# Get complete data ( 3rd out of 5)
+imp_training_df <- complete(imp_training,3)
+colSums(is.na(imp_training_df))
+head(imp_training_df)
+#A BRIEF INTRODUCTION TO MICE R PACKAGE
+#https://datasciencebeginners.com/2018/11/11/a-brief-introduction-to-mice-r-package/
+```
+
+
+Now we're going to remove the highly correlated predictor variables. First we turn our dataframe into a matrix object then determine the correlation between columns. We use the findCorrelation() function to make a list of columns to remove. The absolute values of pair-wise correlations are considered. If two variables have a high correlation, the function looks at the mean absolute correlation of each variable and removes the variable with the largest mean absolute correlation. We're using the cutoff coefficient of .75.  This reduces the data from 41 columns to 26 columns.
+
+Next we pre-process the data using center and scale. Center subtracts the mean of the predictor's data from the predictor values. This makes it easier to interpret the intercept. Scale divides by the predictor data by the standard deviation which will standardize the units of the regression coefficients. This pre-processing won't affect our estimates and our p-values will remain the same. 
+
+```{r, eval=FALSE}
+# #Removing Highly Correlated Predictors
+descrCor <-  model.matrix(~0+., data=imp_training_df) %>%
+  cor(use="pairwise.complete.obs")
+summary(descrCor[upper.tri(descrCor)])
+highlyCorDescr <- findCorrelation(descrCor, cutoff = .75)
+imp_No_High_Corr_training_df <- imp_training_df[,-highlyCorDescr]
+descrCor2 <- model.matrix(~0+., data=imp_No_High_Corr_training_df) %>%
+  cor(use="pairwise.complete.obs")
+summary(descrCor[upper.tri(descrCor)])
+dim(imp_training_df)
+dim(imp_No_High_Corr_training_df)
+head(imp_No_High_Corr_training_df)
+#Pre Prcessing Predictors
+pp_no_nzv <- preProcess(imp_No_High_Corr_training_df[, 2:26],
+                        method = c("center", "scale")) #no  "nzv" "BoxCox"  "YeoJohnson"
+pp_no_nzv
+Pre_processed_imp_No_High_Corr_training_df <- predict(pp_no_nzv, newdata = imp_No_High_Corr_training_df[, 1:26])
+```
+
+\newpage
+##   Model Training
+
+Next we split our pre-processed dataset into a training set and a test set to evaluate our model's effectiveness. The training set is data used to estimate the various values needed to mathematically define the relationships between the predictors and outcome. We will create various models then test their effectiveness on the test data. The test set will be used only when a few strong candidate models have been finalized. Which data will be used in the test and training data is selected randomly. We will use 80% of the data in the training sample and 20% in the test sample. 
+
+
+```{r}
+#training_df
+#imp_training_df
+#imp_No_High_Corr_training_df
+#Pre_processed_imp_No_High_Corr_training_df
+df <- imp_training_df
+#df <- ppc_df
+#Creating Test and Training Set
+trainIndex <- createDataPartition(df$PH, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+df_Train <- df[ trainIndex,]
+df_Test  <- df[-trainIndex,]
+```
+
+
+
+
+```{r}
+# model1 <- lm(PH ~., data = df_Train)
+# predictions <- model1 %>% predict(df_Test)
+# data.frame(
+#   RMSE = RMSE(predictions, df_Test$PH),
+#   R2 = R2(predictions, df_Test$PH)
+# )
+# car::vif(model1)
+```
+```{r}
+# model2 <- lm(PH ~. -Carb.Pressure, data = df_Train)
+# predictions2 <- model2 %>% predict(df_Test)
+# data.frame(
+#   RMSE = RMSE(predictions2, df_Test$PH),
+#   R2 = R2(predictions2, df_Test$PH)
+# )
+# car::vif(model2)
+```
+
+
+
+
+
+Now we start to build our models. First we define our resampling method. A subset of samples are used to fit a model and the remaining samples are used to estimate the efficacy of the model. Resampling methods can produce reasonable predictions of how well the model will perform on future samples. In this case we are using 10-fold cross-validation because the bias and variance properties are good and is relatively quick to compute. 
+
+
+###    Regression Models
+
+
+The first set of models we'll be building is linear regression, partial least squares, ridge regression, and robust linear regression. Each of these models seeks to find estimates of the parameters so that the sum of the squared errors or a function of the sum of the squared errors is minimized. The interpretability of coefficients makes it very attractive as a modeling tool but if the data has curvature or nonlinear structure, then regression will not be able to identify these characteristics.
+
+Ordinary linear regression equation can be written as 
+
+yi = b0 + b1xi1 + b2xi2 + ... + bjxij + ei 
+
+where yi represents the numeric response for the ith sample, b0 represents the estimated intercept, bj represents the estimated coefficient for the tth predictor, xij represents the value of the jth predictor for the ith sample, and ei represents random error that cannot be explained by the model. 
+
+Partial least squares is another regression technique that handles correlated values well. Like principal component analysis, partial least squares finds linear combinations of the predictors with the goal of maximally summarizing the covariance with the response variable. This strikes a compromise between the objectives of predictor space dimension reduction and a predictive relationship with the response. 
+
+Ridge regression adds a penalty on the sum of the squared regression parameters. The effect of this penalty is that the parameter estimates are only allowed to become large if there is a proportional reduction in SSE. This controls for collinearity by reducing features that don't improve our model. There is no feature selection but some features can become negligible if they are highly correlated with other influential features. 
+
+With Robust Linear Regression, we seek to minimize the effect of outliers on the regression equations. One drawback of minimizing SSE is that the parameter estimates can be influenced by just one observation that falls far from the overall trend in the data. When data may contain influential observations, an alternative minimization metric that is less sensitive, such as not squaring residuals when they are large, can be used to find the best parameter estimates. 
+
+Each of these models can be constructed using the train() function. 
+
+We then assess the performance of these models using two measures of accuracy: R^2 and Root Mean Squared Error. 
+
+RMSE is a function of the model residuals, which are the observed values minus the model predictions. This is calculated by squaring the residuals, summing them, then taking the square root. The value is usually interpreted as either how far (on average) the residuals are from zero or as the average distance between the observed values and the model predictions.
+
+The R^2 or coefficient of determination can be interpreted as the proportion of the information in the data that is explained by the model. This is calculated by finding the correlation coefficient between the observed and predicted values (usually denoted by R) and squaring it. This is a measure of correlation, not accuracy. We will still need to validate our predictions on test data to avoid over-fitting. 
+
+```{r}
+tic()
+######## Train Models
+ctrl <- trainControl(method = "cv", number = 10)
+#Linear Model
+lm_model <- train(
+  PH~., data = df_Train, method = "lm")
+#Partial Least Squares
+pls_model <- train(PH~., data = df_Train,
+                  method = "pls",
+                  ## The default tuning grid evaluates
+                  ## components 1... tuneLength
+                  tuneLength = 20,
+                  trControl = ctrl,
+                  preProc = c("center", "scale"))
+#Ridge Regression
+# Define the candidate set of values
+ridgeGrid <- data.frame(.lambda = seq(0, .1, length = 15))
+set.seed(100)
+ridge_model <- train(PH~., data = df_Train,
+                      method = "ridge",
+                      ## Fir the model over many penalty values
+                      tuneGrid = ridgeGrid,
+                      trControl = ctrl,
+                      ## put the predictors on the same scale
+                      preProc = c("center", "scale"))
+#Robust Linear Regression
+ctrl <- trainControl(method = "cv", number = 10)
+rlmPCA_model <- train(PH~., data = df_Train,
+                method = "rlm",
+                preProcess = "pca",
+                trControl = ctrl)
+########  Make predictions
+lm_predictions <- lm_model %>% predict(df_Test)
+# Model performance metrics
+lm_accuracy <- data.frame( 
+  Model = "Linear Regression",
+  RMSE = caret::RMSE(lm_predictions, df_Test$PH),
+  Rsquare = caret::R2(lm_predictions, df_Test$PH)
+)
+#lm_accuracy
+# Make predictions
+pls_predictions <- pls_model %>% predict(df_Test)
+# Model performance metrics
+pls_accuracy <- data.frame( 
+  Model = "Partial Least Squares",
+  RMSE = caret::RMSE(pls_predictions, df_Test$PH),
+  Rsquare = caret::R2(pls_predictions, df_Test$PH)
+)
+ridge_predictions <- ridge_model %>% predict(df_Test)
+# Model performance metrics
+ridge_accuracy <- data.frame( 
+  Model = "Ridge-regression",
+  RMSE = caret::RMSE(ridge_predictions, df_Test$PH),
+  Rsquare = caret::R2(ridge_predictions, df_Test$PH)
+)
+rlmPCA_model_predictions <- rlmPCA_model %>% predict(df_Test)
+cat("All four linear regression models took ") 
+toc()
+cat("to train.\n")
+# Model performance metrics
+rlmPCA_Accuracy <- data.frame(
+  Model = "Robust Linear Model",
+  RMSE = caret::RMSE(rlmPCA_model_predictions,df_Test$PH),
+  Rsquare = caret::R2(rlmPCA_model_predictions,df_Test$PH))
+rbind(lm_accuracy, rlmPCA_Accuracy, pls_accuracy, ridge_accuracy)
+```
+```{r}
+dim(training_df)
+dim(imp_training_df)
+```
+
+
+
+We can now evaluate the performance of each model using different types of training data. We test our imputed predictors with and without our binary predictors which were derived from our zero inflated predictors. For these linear models, the imputed predictors without the binary predictors seem to give us to highest R^2 and lowest RSME. We will continue to test different combinations with our non-linear models. 
+
+
+
+Here we plot our observed vs. predicted measures for our training data using each of our models. We notice the y intercept and slope appears to change slightly to compensate for the differences in the plot area but we're looking for the distance from the slope. We see outliers are handled differently but overall the shape of the distribution seems consistent. There does not appear to be clusters or patterns of changing accuracy in the distribution. 
+
+```{r}
+par(mar = c(4, 4, 4, 4))
+par(mfrow=c(2,2))
+plot(lm_predictions, df_Test$PH, ylab="Observed", col = "red")
+abline(0, 1, lwd=2)
+plot(pls_predictions, df_Test$PH, ylab="Observed", col = "blue")
+abline(0, 1, lwd=2)
+plot(ridge_predictions, df_Test$PH, ylab="Observed", col = "purple")
+abline(0, 1, lwd=2)
+plot(rlmPCA_model_predictions, df_Test$PH, ylab="Observed", col = "dark green")
+abline(0, 1, lwd=2)
+mtext("Observed Vs. Predicted", side = 3, line = -2, outer = TRUE)
+```
+
+Next we look at the variable importance. For linear models, variable importance is calculated using the t-statistic, predicted minus actual divided by standard error, for each model parameter that is used. You notice that different features are more or less influential depending on the model used. 
+
+```{r}
+plot(varImp(lm_model), main="Linear Regression Predictor Importance", top = 5, xlim = c(0,100))
+plot(varImp(ridge_model), main="Ridge Regression Predictor Importance", top = 5, xlim = c(0,100))
+```
+
+
+###    Non-Linear Models
+
+
+Next we build the non-linear models. We've decided to try k-nearest neighbors (KNN), support vector machines (SVM), multivariate adaptive regression splines (MARS), and neural networks. These models are not based on simple linear combinations of the predictors. 
+
+Neural networks, like partial least squares, the outcome is modeled by an intermediary set of unobserved variables. These hidden units are linear combinations of the original predictors, but, unlike PLS models, they are not estimated in a hierarchical fashion. There are no constraints that help define these linear combinations. Each unit must then be related to the outcome using another linear combination connecting the hidden units. Treating this model as a nonlinear regression model, the parameters are usually optimized using the back-propagation algorithm to minimize the sum of the squared residuals.
+
+MARS uses surrogate features instead of the original predictors. However, whereas PLS and neural networks are based on linear combinations of the predictors, MARS creates two contrasted versions of a predictor to enter the model. MARS features breaks the predictor into two groups, a "hinge" function of the original based on a cut point that achieves the smallest error, and models linear relationships between the predictor and the outcome in each group. The new features are added to a basic linear regression model to estimate the slopes and intercepts.
+
+Support Vector Machines follow the framework of robust regression where we seek to minimize the effect of outliers on the regression equations. We find parameter estimates that minimize SSE by not squaring the residuals when they are very large. In addition samples that the model fits well have no effect on the regression equation. A threshold is set using resampling and a kernel function which specifies the relationship between predictors and outcome so that only poorly predicted points called support vectors are used to fit the line. The radial kernel we are using has an additional parameter which impacts the smoothness of the upper and lower boundary. 
+
+K-Nearest Neighbors simply predicts a new sample using the K-closest samples from the training set. The predicted response for the new sample is then the mean of the K neighbors’ responses. Distances between samples can be defined as Euclidean distance, Minkowski distance, Tanimoto, Hamming, and cosine could be used for specific contexts. Predictors with the largest scales will contribute most to the distance between samples so centering and scaling the data during pre-processing is important.
+
+
+
+```{r}
+tic()
+knnModel <- train(PH~., data = df_Train,
+                  method = "knn",
+                  preProc = c("center", "scale"),
+                  tuneLength = 10)
+#knnModel
+tc <- trainControl(method = "cv",
+                           number = 5,
+                           classProbs = T)
+svmModel <- train(PH~., data = df_Train,
+                    method = "svmRadial",
+                    preProcess = c("BoxCox","center", "scale"),
+                    trControl = tc,
+                    tuneLength = 9)
+marsGrid <- expand.grid(.degree = 1:2, .nprune = 2:38)
+marsTuned <- train(PH~., data = df_Train,
+                   method = "earth",
+                   tuneGrid = marsGrid,
+                   trControl = trainControl(method = "cv"))
+cat("All 3 non-linear regression models took ") 
+toc()
+cat("to train.\n")
+```
+
+```{r}
+knnModel_predictions <- knnModel %>% predict(df_Test)
+# Model performance metrics
+knn_Accuracy <- data.frame(
+  Model = "k-Nearest Neighbors",
+  RMSE = caret::RMSE(knnModel_predictions,df_Test$PH),
+  Rsquare = caret::R2(knnModel_predictions,df_Test$PH))
+predictions_svm <- svmModel %>% predict(df_Test)
+# Model SVM performance metrics
+SMV_Acc <- data.frame(
+  Model = "Support Vector Machine",
+  RMSE = caret::RMSE(predictions_svm, df_Test$PH),
+  Rsquare = caret::R2(predictions_svm, df_Test$PH)
+)
+#summary(marsTuned)
+# Make MARS predictions
+predictions_mars_tuned <- marsTuned %>% predict(df_Test)
+# Model MARS performance metrics
+MARS_Acc_tuned <- data.frame(
+  Model = "MARS Tuned",
+  RMSE = caret::RMSE(predictions_mars_tuned, df_Test$PH),
+  Rsquare = caret::R2(predictions_mars_tuned, df_Test$PH)
+)
+names(MARS_Acc_tuned)[names(MARS_Acc_tuned) == 'y'] <- "Rsquare"
+rbind(knn_Accuracy,SMV_Acc,MARS_Acc_tuned)
+```
+
+
+
+```{r}
+ncol(df_Train)
+5 * (ncol(df_Train) + 1) + 5 + 1
+```
+
+```{r}
+NNModel_1 <- avNNet(PH~., data = df_Train,
+                   size = 5, 
+                   decay = 0.01,
+                   linout = TRUE, 
+                   trace = FALSE,
+                   maxit = 500)
+predictions_NNModel_1 <- NNModel_1 %>% predict(df_Test)
+# Model MARS performance metrics
+predictions_NNModel_1_Acc <- data.frame(
+  Model = "Neural Network avNNet",
+  RMSE = caret::RMSE(predictions_NNModel_1, df_Test$PH),
+  Rsquare = caret::R2(predictions_NNModel_1, df_Test$PH)
+)
+predictions_NNModel_1_Acc
+```
+
+Again we plot that observed vs. predicted values. Outliers are handled differently between each model and we notice the data are clustered closer to the slope overall. 
+
+```{r}
+par(mar = c(4, 4, 4, 4))
+par(mfrow=c(2,2))
+plot(knnModel_predictions, df_Test$PH, ylab="Observed", col = "red")
+abline(0, 1, lwd=2)
+plot(predictions_svm, df_Test$PH, ylab="Observed", col = "dark green")
+abline(0, 1, lwd=2)
+plot(predictions_mars_tuned, df_Test$PH, ylab="Observed", col = "blue")
+abline(0, 1, lwd=2)
+mtext("Observed Vs. Predicted  - Non - Linar Models with Reduced Predictor Set", side = 3, line = -2, outer = TRUE)
+```
+
+
+```{r, eval = FALSE}
+NNModel_1 <- avNNet(PH~., data = df_Train,
+                  #trainingData$x, trainingData$y,
+                  size = 5,
+                  decay = 0.01,
+                  repeats = 5,
+                  linout = TRUE,
+                  trace = FALSE,
+                  maxit = 500,
+                  MaxNWts = 5 * (ncol(df_Train) + 1) + 5 + 1)
+#summary(NNModel_1)
+# Make MARS predictions
+predictions_NNModel_1 <- NNModel_1 %>% predict(df_Test)
+# Model MARS performance metrics
+predictions_NNModel_1_Acc <- data.frame(
+  Model = "Neural Network avNNet",
+  RMSE = caret::RMSE(predictions_NNModel_1, df_Test$PH),
+  Rsquare = caret::R2(predictions_NNModel_1, df_Test$PH)
+)
+#names(predictions_NNModel_1_Acc)[names(predictions_NNModel_1_Acc) == "trainingData.y"] <- "Rsquare"
+#predictions_NNModel_1_Acc
+```
+
+```{r}
+```
+
+
+```{r}
+nnetGrid <- expand.grid(decay = c(0, 0.01, .1),
+                        size = c(1:10))
+# get the maximum number of hidden units
+maxSize <- max(nnetGrid$size)
+# compute the maximum number of parameters
+# there are M(p+1)+M+1 parameters in total
+numWts <- 1*(maxSize * (length(df_Train) + 1) + maxSize + 1)
+ctrl <- trainControl(method = "cv",  # corss-validation
+                     number = 10  # 10 folds
+                     #classProbs = TRUE, # report class probability
+                     #summaryFunction = twoClassSummary # return AUC
+)
+nnetTune <- train(PH~., data = df_Train,
+                   method = "nnet", # train neural network using `nnet` package 
+                   tuneGrid = nnetGrid, # tuning grid
+                   trControl = ctrl, # process customization set before
+                   preProc = c("center", "scale"), # standardize data
+                   trace = FALSE,  # hide the training trace
+                   MaxNWts = numWts,  # maximum number of weight
+                   maxit = 500 # maximum iteration
+)
+predictions_NNModel_2 <- nnetTune %>% predict(df_Test)
+# Model MARS performance metrics
+predictions_NNModel_1_Acc <- data.frame(
+  Model = "Neural Network avNNet",
+  RMSE = caret::RMSE(predictions_NNModel_1, df_Test$PH),
+  Rsquare = caret::R2(predictions_NNModel_1, df_Test$PH)
+)
+predictions_NNModel_1_Acc
+```
+
+
+###    Tree Based Models
+
+
+```{r}
+ncol(df_Train)
+sqrt(ncol(df_Train))
+```
+
+Finally we create a number of tree based models. We look at Single Tree, Gradient Boosted Machine, Bagged Tree, and Random Forrest.
+
+Single Tree models consist of one or more nested if-then statements for the predictors that partition the data. Within these partitions, a model is used to predict the outcome. A two-dimensional predictor space is cut into as many terminal nodes as there are any that space will be predicted by a single number. Tree based models are highly interpretable and effectively handle many different data types. For regression, the model begins with the entire data set and searches every distinct value of every predictor to find the predictor and split value that partitions the data into two groups such that the overall sums of squares error are minimized. A complexity parameter is added to avoid overfitting by penalize the error rate using the size of the tree. 
+
+Other Tree models combine multiple trees for an ensemble which uses the average of the training data in the terminal nodes. Bagging is a general approach that uses bootstrapping in conjunction with any regression model to construct an ensemble. Bagging effectively reduces the variance of a prediction through its aggregation process. The bootstrap sampling also provides an inherent test or out-of-bag sample that can be used to assess the predictive performance of that specific model since they were not used to build the model.
+
+Random Forests improve on bagging by removing the inherent correlation between trees. There is a lack of independence since all of the original predictors are considered at every split of every tree that leads to this correlation and decreased performance. Random forests increase variance by adding randomness to the tree building process. Random split selection, where trees are built using a random subset of the top k predictors at each split in the tree, can greatly improve performance of our model. Each model in the ensemble is then used to generate a prediction for a new sample and these m predictions are averaged to give the forest’s prediction. 
+
+Gradient Boosted Machines function by combining a number of weak classifiers to a new classifier with a lower error rate. Using SSE, the model combines trees until the residuals are minimized. This method can be continued until a desired number of iterations and a specified tree depth. Each tree in this model is dependent on past trees so this requires lots of compute resources.
+
+
+```{r, eval=FALSE}
+tic()
+rf_model <- randomForest(PH ~ ., data = df_Train, 
+                       importance = TRUE,
+                       ntree = 1000)
+# Random Forest predictions
+rf_predictions <- rf_model %>% predict(df_Test)
+# Model performance metrics
+rf_accuracy <- data.frame( 
+  Model = "Random Forest",
+  RMSE = caret::RMSE(rf_predictions, df_Test$PH),
+  Rsquare = caret::R2(rf_predictions, df_Test$PH)
+)
+toc()
+#==================
+tic()
+# Random Search
+control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
+metric <- "RMSE"
+mtry <- sqrt(ncol(df_Train))
+rf_random <- train(PH ~ ., data = df_Train, 
+                   method="rf", metric=metric, tuneLength=15, trControl=control)
+#Random Forest predictions
+rf_predictionsv2 <- rf_random %>% predict(df_Test)
+# Model performance metrics
+rf_accuracyV2 <- data.frame( 
+  Model = "Random Forest Search",
+  RMSE = caret::RMSE(rf_predictionsv2, df_Test$PH),
+  Rsquare = caret::R2(rf_predictionsv2, df_Test$PH)
+)
+toc()
+#==================
+tic()
+control <- trainControl(method="repeatedcv", number=10, repeats=3, search="grid")
+tunegrid <- expand.grid(.mtry=c(1:15))
+rf_grid <- train(PH ~ ., data = df_Train, 
+                       method="rf", metric=metric, tuneGrid=tunegrid, trControl=control)
+#Random Forest predictions
+rf_predictionsv3 <- rf_grid %>% predict(df_Test)
+# Model performance metrics
+rf_accuracyV3 <- data.frame( 
+  Model = "Random Forest Grid",
+  RMSE = caret::RMSE(rf_predictionsv3, df_Test$PH),
+  Rsquare = caret::R2(rf_predictionsv3, df_Test$PH)
+)
+toc()
+#########
+rbind(rf_accuracy,rf_accuracyV2,rf_accuracyV3)
+```
+
+
+
+```{r}
+tic()
+##==============Single Tree==============
+single_tree <- rpart(PH ~ ., data = df_Train, 
+   method="anova")
+# Single Tree predictions
+single_t_predictions <- single_tree %>% predict(df_Test)
+# Model performance metrics
+single_t_accuracy <- data.frame( 
+  Model = "Single Tree",
+  RMSE = caret::RMSE(single_t_predictions, df_Test$PH),
+  Rsquare = caret::R2(single_t_predictions, df_Test$PH)
+)
+##==============Random Forest==============
+control <- trainControl(method="repeatedcv", number=10, repeats=3, search="grid")
+tunegrid <- expand.grid(.mtry=c(1:15))
+rf_grid <- train(PH ~ ., data = df_Train, 
+                       method="rf", metric=metric, tuneGrid=tunegrid, trControl=control)
+#Random Forest predictions
+rf_predictions <- rf_grid %>% predict(df_Test)
+# Model performance metrics
+rf_accuracy <- data.frame( 
+  Model = "Random Forest Grid",
+  RMSE = caret::RMSE(rf_predictions, df_Test$PH),
+  Rsquare = caret::R2(rf_predictions, df_Test$PH)
+)
+##==============Bagged Tree==============
+bagCtrl <- cforest_control(mtry = ncol(df_Train) - 1)
+baggedTree_model <- cforest(PH ~ ., data = df_Train, 
+                      controls = bagCtrl)
+# Bagged Tree predictions
+bgTree_predictions <- baggedTree_model %>% predict(newdata = df_Test)
+# Model performance metrics
+bgTree_accuracy <- data.frame( 
+  Model = "Bagged Tree",
+  RMSE = caret::RMSE(bgTree_predictions, df_Test$PH),
+  Rsquare = caret::R2(bgTree_predictions, df_Test$PH)
+)
+names(bgTree_accuracy)[names(bgTree_accuracy) == "PH"] <- "Rsquare"
+##==============GBM==============
+gbmGrid <- expand.grid(.interaction.depth = seq(1, 7, by = 2),
+                       #.n.trees = seq(100, 1000, by = 50),
+                       .n.trees = seq(100, 1000, by = 50),
+                       .shrinkage = c(0.01, 0.1),
+                       .n.minobsinnode = c(5, 10, 20, 30) )
+gbm_model <- train(PH ~ ., data = df_Train,
+                 method = "gbm",
+                 tuneGrid = gbmGrid,
+                 verbose = FALSE)
+# GBM predictions
+gbm_predictions <- gbm_model %>% predict(df_Test)
+# Model performance metrics
+gbm_accuracy <- data.frame( 
+  Model = "Gradient Boosted Machine",
+  RMSE = caret::RMSE(gbm_predictions, df_Test$PH),
+  Rsquare = caret::R2(gbm_predictions, df_Test$PH)
+)
+##==============
+tree_model_accuracy <- rbind(single_t_accuracy,rf_accuracy,bgTree_accuracy,gbm_accuracy)
+tree_model_accuracy <- tree_model_accuracy[order(tree_model_accuracy$Rsquare),]
+tree_model_accuracy
+```
+
+
+
+
+
+```{r}
+par(mar = c(4, 4, 4, 4))
+par(mfrow=c(2,2))
+plot(single_t_predictions, df_Test$PH, ylab="Observed", col = "red")
+abline(0, 1, lwd=2)
+plot(rf_predictions, df_Test$PH, ylab="Observed", col = "dark green")
+abline(0, 1, lwd=2)
+plot(bgTree_predictions, df_Test$PH, ylab="Observed", col = "blue")
+abline(0, 1, lwd=2)
+plot(gbm_predictions, df_Test$PH, ylab="Observed", col = "purple")
+abline(0, 1, lwd=2)
+mtext("Observed Vs. Predicted  - Tree Based Models with Reduced Predictor Set", side = 3, line = -2, outer = TRUE)
+```
+
+
+
+
+##   Model Comparisson
+
+
+```{r}
+All_predictions <- cbind(lm_predictions,pls_predictions,ridge_predictions,rlmPCA_model_predictions,knnModel_predictions,predictions_svm,predictions_mars_tuned,predictions_NNModel_1,single_t_predictions,rf_predictions,bgTree_predictions,gbm_predictions) %>% as.data.frame()
+names(All_predictions)[names(All_predictions) == 'y'] <- "predictions_mars_tuned"
+names(All_predictions)[names(All_predictions) == 'PH'] <- "bgTree_predictions"
+All_predictions <- cbind(All_predictions,df_Test$PH)
+names(All_predictions)[names(All_predictions) == 'df_Test$PH'] <- "PH"
+head(All_predictions, 5)
+```
+
+
+```{r}
+All_predictions <- cbind(lm_predictions,pls_predictions,ridge_predictions,rlmPCA_model_predictions,knnModel_predictions,predictions_svm,predictions_mars_tuned,predictions_NNModel_1,single_t_predictions,rf_predictions,bgTree_predictions,gbm_predictions) %>% as.data.frame()
+names(All_predictions)[names(All_predictions) == 'y'] <- "predictions_mars_tuned"
+names(All_predictions)[names(All_predictions) == 'PH'] <- "bgTree_predictions"
+All_predictions <- cbind(All_predictions,df_Test$PH)
+names(All_predictions)[names(All_predictions) == 'df_Test$PH'] <- "PH"
+#Melting all column values together using PH as index
+df.m <- melt(All_predictions, "PH")
+names(df.m)[names(df.m) == 'variable'] <- "Model"
+#head(df.m)
+ggplot(df.m, aes(value, PH,colour = Model)) + 
+  geom_point() + 
+  facet_wrap(~Model, scales = "free", ncol = 2) +
+  geom_abline() +
+  coord_cartesian(xlim = c(8.0, 9)) + stat_density_2d(aes(fill = ..level..), geom="polygon")
+```
+
+Our final results from the models are displayed below. The Random Forest model using the training dataset which contained the highly correlated predictors and the binary predictors based on the zero inflated predictors performed the best with an RMSE of 0.0937 and an R^2 of 0.729
+
+
+```{r}
+all_model_accuracy <- rbind(lm_accuracy, rlmPCA_Accuracy, pls_accuracy, ridge_accuracy, predictions_NNModel_1_Acc, knn_Accuracy,SMV_Acc,MARS_Acc_tuned, single_t_accuracy,rf_accuracy,bgTree_accuracy,gbm_accuracy)
+all_model_accuracy <- all_model_accuracy[order(-all_model_accuracy$Rsquare),]
+all_model_accuracy
+```
+
+**With only given Predictors**
+
+10	Random Forest	0.1044049	0.6597720	
+11	Bagged Tree	0.1071411	0.6239057	
+12	Gradient Boosted Machine	0.1119545	0.5820163	
+7	Support Vector Machine	0.1177673	0.5381996	
+6	k-Nearest Neighbors	0.1258894	0.4788588	
+8	MARS Tuned	0.1290927	0.4454786	
+9	Single Tree	0.1310870	0.4338619	
+5	Neural Network avNNet	0.1383973	0.3706766	
+3	Partial Least Squares	0.1397042	0.3519163	
+1	Linear Regression	0.1398716	0.3504730	
+4	Ridge-regression	0.1399046	0.3496677	
+2	Robust Linear Model	0.1436261	0.3131386
+
+**With Extra set of binary Predictors**
+
+10	Random Forest	0.09371340	0.7293525	
+11	Bagged Tree	0.09707804	0.6907065	
+12	Gradient Boosted Machine	0.10191416	0.6525747	
+7	Support Vector Machine	0.10960570	0.5974745	
+8	MARS Tuned	0.11102573	0.5872220	
+6	k-Nearest Neighbors	0.11685722	0.5468324	
+9	Single Tree	0.11769607	0.5358269	
+5	Neural Network avNNet	0.12279118	0.4975638	
+1	Linear Regression	0.12948997	0.4370334	
+4	Ridge-regression	0.12948997	0.4370334	
+3	Partial Least Squares	0.12960675	0.4370189	
+2	Robust Linear Model	0.13258389	0.4110927
+
+##   Final Thoughts
