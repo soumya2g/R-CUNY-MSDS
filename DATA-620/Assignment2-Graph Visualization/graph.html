@@ -1,0 +1,204 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis.css" type="text/css" />
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis-network.min.js"> </script>
+<center>
+<h1>None</h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+
+<style type="text/css">
+
+        #mynetwork {
+            width: 100%;
+            height: 800px;
+            background-color: #ffffff;
+            border: 1px solid lightgray;
+            position: relative;
+            float: left;
+        }
+
+        
+        #loadingBar {
+            position:absolute;
+            top:0px;
+            left:0px;
+            width: 100%;
+            height: 800px;
+            background-color:rgba(200,200,200,0.8);
+            -webkit-transition: all 0.5s ease;
+            -moz-transition: all 0.5s ease;
+            -ms-transition: all 0.5s ease;
+            -o-transition: all 0.5s ease;
+            transition: all 0.5s ease;
+            opacity:1;
+        }
+
+        #bar {
+            position:absolute;
+            top:0px;
+            left:0px;
+            width:20px;
+            height:20px;
+            margin:auto auto auto auto;
+            border-radius:11px;
+            border:2px solid rgba(30,30,30,0.05);
+            background: rgb(0, 173, 246); /* Old browsers */
+            box-shadow: 2px 0px 4px rgba(0,0,0,0.4);
+        }
+
+        #border {
+            position:absolute;
+            top:10px;
+            left:10px;
+            width:500px;
+            height:23px;
+            margin:auto auto auto auto;
+            box-shadow: 0px 0px 4px rgba(0,0,0,0.2);
+            border-radius:10px;
+        }
+
+        #text {
+            position:absolute;
+            top:8px;
+            left:530px;
+            width:30px;
+            height:50px;
+            margin:auto auto auto auto;
+            font-size:22px;
+            color: #000000;
+        }
+
+        div.outerBorder {
+            position:relative;
+            top:400px;
+            width:600px;
+            height:44px;
+            margin:auto auto auto auto;
+            border:8px solid rgba(0,0,0,0.1);
+            background: rgb(252,252,252); /* Old browsers */
+            background: -moz-linear-gradient(top,  rgba(252,252,252,1) 0%, rgba(237,237,237,1) 100%); /* FF3.6+ */
+            background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(252,252,252,1)), color-stop(100%,rgba(237,237,237,1))); /* Chrome,Safari4+ */
+            background: -webkit-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* Chrome10+,Safari5.1+ */
+            background: -o-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* Opera 11.10+ */
+            background: -ms-linear-gradient(top,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* IE10+ */
+            background: linear-gradient(to bottom,  rgba(252,252,252,1) 0%,rgba(237,237,237,1) 100%); /* W3C */
+            filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#fcfcfc', endColorstr='#ededed',GradientType=0 ); /* IE6-9 */
+            border-radius:72px;
+            box-shadow: 0px 0px 10px rgba(0,0,0,0.2);
+        }
+        
+
+        
+
+        
+</style>
+
+</head>
+
+<body>
+<div id = "mynetwork"></div>
+
+<div id="loadingBar">
+    <div class="outerBorder">
+        <div id="text">0%</div>
+        <div id="border">
+            <div id="bar"></div>
+        </div>
+    </div>
+</div>
+
+
+<script type="text/javascript">
+
+    // initialize global variables.
+    var edges;
+    var nodes;
+    var network; 
+    var container;
+    var options, data;
+
+    
+    // This method is responsible for drawing the graph, returns the drawn network
+    function drawGraph() {
+        var container = document.getElementById('mynetwork');
+        
+        
+
+        // parsing and collecting nodes and edges from the python
+        nodes = new vis.DataSet([{"id": "agreeable", "label": "agreeable", "shape": "dot", "size": 10, "value": 0}, {"id": "man", "label": "man", "shape": "dot", "size": 10, "value": 1}, {"id": "old", "label": "old", "shape": "dot", "size": 10, "value": 0}, {"id": "person", "label": "person", "shape": "dot", "size": 10, "value": 1}, {"id": "first", "label": "first", "shape": "dot", "size": 10, "value": 0}, {"id": "black", "label": "black", "shape": "dot", "size": 10, "value": 0}, {"id": "little", "label": "little", "shape": "dot", "size": 10, "value": 0}, {"id": "young", "label": "young", "shape": "dot", "size": 10, "value": 0}, {"id": "best", "label": "best", "shape": "dot", "size": 10, "value": 0}, {"id": "better", "label": "better", "shape": "dot", "size": 10, "value": 0}, {"id": "certain", "label": "certain", "shape": "dot", "size": 10, "value": 0}, {"id": "happy", "label": "happy", "shape": "dot", "size": 10, "value": 0}, {"id": "common", "label": "common", "shape": "dot", "size": 10, "value": 0}, {"id": "good", "label": "good", "shape": "dot", "size": 10, "value": 0}, {"id": "alone", "label": "alone", "shape": "dot", "size": 10, "value": 0}, {"id": "poor", "label": "poor", "shape": "dot", "size": 10, "value": 0}, {"id": "air", "label": "air", "shape": "dot", "size": 10, "value": 1}, {"id": "friend", "label": "friend", "shape": "dot", "size": 10, "value": 1}, {"id": "love", "label": "love", "shape": "dot", "size": 10, "value": 1}, {"id": "part", "label": "part", "shape": "dot", "size": 10, "value": 1}, {"id": "room", "label": "room", "shape": "dot", "size": 10, "value": 1}, {"id": "thing", "label": "thing", "shape": "dot", "size": 10, "value": 1}, {"id": "time", "label": "time", "shape": "dot", "size": 10, "value": 1}, {"id": "way", "label": "way", "shape": "dot", "size": 10, "value": 1}, {"id": "place", "label": "place", "shape": "dot", "size": 10, "value": 1}, {"id": "woman", "label": "woman", "shape": "dot", "size": 10, "value": 1}, {"id": "door", "label": "door", "shape": "dot", "size": 10, "value": 1}, {"id": "day", "label": "day", "shape": "dot", "size": 10, "value": 1}, {"id": "dear", "label": "dear", "shape": "dot", "size": 10, "value": 0}, {"id": "pretty", "label": "pretty", "shape": "dot", "size": 10, "value": 0}, {"id": "head", "label": "head", "shape": "dot", "size": 10, "value": 1}, {"id": "life", "label": "life", "shape": "dot", "size": 10, "value": 1}, {"id": "house", "label": "house", "shape": "dot", "size": 10, "value": 1}, {"id": "miserable", "label": "miserable", "shape": "dot", "size": 10, "value": 0}, {"id": "name", "label": "name", "shape": "dot", "size": 10, "value": 1}, {"id": "pleasant", "label": "pleasant", "shape": "dot", "size": 10, "value": 0}, {"id": "same", "label": "same", "shape": "dot", "size": 10, "value": 0}, {"id": "strong", "label": "strong", "shape": "dot", "size": 10, "value": 0}, {"id": "year", "label": "year", "shape": "dot", "size": 10, "value": 1}, {"id": "bad", "label": "bad", "shape": "dot", "size": 10, "value": 0}, {"id": "other", "label": "other", "shape": "dot", "size": 10, "value": 0}, {"id": "money", "label": "money", "shape": "dot", "size": 10, "value": 1}, {"id": "anything", "label": "anything", "shape": "dot", "size": 10, "value": 1}, {"id": "short", "label": "short", "shape": "dot", "size": 10, "value": 0}, {"id": "thought", "label": "thought", "shape": "dot", "size": 10, "value": 1}, {"id": "arm", "label": "arm", "shape": "dot", "size": 10, "value": 1}, {"id": "right", "label": "right", "shape": "dot", "size": 10, "value": 0}, {"id": "evening", "label": "evening", "shape": "dot", "size": 10, "value": 1}, {"id": "round", "label": "round", "shape": "dot", "size": 10, "value": 0}, {"id": "home", "label": "home", "shape": "dot", "size": 10, "value": 1}, {"id": "open", "label": "open", "shape": "dot", "size": 10, "value": 0}, {"id": "face", "label": "face", "shape": "dot", "size": 10, "value": 1}, {"id": "eye", "label": "eye", "shape": "dot", "size": 10, "value": 1}, {"id": "bright", "label": "bright", "shape": "dot", "size": 10, "value": 0}, {"id": "hand", "label": "hand", "shape": "dot", "size": 10, "value": 1}, {"id": "large", "label": "large", "shape": "dot", "size": 10, "value": 0}, {"id": "small", "label": "small", "shape": "dot", "size": 10, "value": 0}, {"id": "something", "label": "something", "shape": "dot", "size": 10, "value": 1}, {"id": "aunt", "label": "aunt", "shape": "dot", "size": 10, "value": 1}, {"id": "boy", "label": "boy", "shape": "dot", "size": 10, "value": 1}, {"id": "morning", "label": "morning", "shape": "dot", "size": 10, "value": 1}, {"id": "great", "label": "great", "shape": "dot", "size": 10, "value": 0}, {"id": "master", "label": "master", "shape": "dot", "size": 10, "value": 1}, {"id": "moment", "label": "moment", "shape": "dot", "size": 10, "value": 1}, {"id": "work", "label": "work", "shape": "dot", "size": 10, "value": 1}, {"id": "general", "label": "general", "shape": "dot", "size": 10, "value": 0}, {"id": "greater", "label": "greater", "shape": "dot", "size": 10, "value": 0}, {"id": "strange", "label": "strange", "shape": "dot", "size": 10, "value": 0}, {"id": "beautiful", "label": "beautiful", "shape": "dot", "size": 10, "value": 0}, {"id": "letter", "label": "letter", "shape": "dot", "size": 10, "value": 1}, {"id": "long", "label": "long", "shape": "dot", "size": 10, "value": 0}, {"id": "hard", "label": "hard", "shape": "dot", "size": 10, "value": 0}, {"id": "kind", "label": "kind", "shape": "dot", "size": 10, "value": 0}, {"id": "new", "label": "new", "shape": "dot", "size": 10, "value": 0}, {"id": "whole", "label": "whole", "shape": "dot", "size": 10, "value": 0}, {"id": "word", "label": "word", "shape": "dot", "size": 10, "value": 1}, {"id": "child", "label": "child", "shape": "dot", "size": 10, "value": 1}, {"id": "voice", "label": "voice", "shape": "dot", "size": 10, "value": 1}, {"id": "hope", "label": "hope", "shape": "dot", "size": 10, "value": 1}, {"id": "red", "label": "red", "shape": "dot", "size": 10, "value": 0}, {"id": "white", "label": "white", "shape": "dot", "size": 10, "value": 0}, {"id": "light", "label": "light", "shape": "dot", "size": 10, "value": 0}, {"id": "bed", "label": "bed", "shape": "dot", "size": 10, "value": 1}, {"id": "low", "label": "low", "shape": "dot", "size": 10, "value": 0}, {"id": "ready", "label": "ready", "shape": "dot", "size": 10, "value": 0}, {"id": "quiet", "label": "quiet", "shape": "dot", "size": 10, "value": 0}, {"id": "heart", "label": "heart", "shape": "dot", "size": 10, "value": 1}, {"id": "mother", "label": "mother", "shape": "dot", "size": 10, "value": 1}, {"id": "course", "label": "course", "shape": "dot", "size": 10, "value": 1}, {"id": "natural", "label": "natural", "shape": "dot", "size": 10, "value": 0}, {"id": "usual", "label": "usual", "shape": "dot", "size": 10, "value": 0}, {"id": "dark", "label": "dark", "shape": "dot", "size": 10, "value": 0}, {"id": "night", "label": "night", "shape": "dot", "size": 10, "value": 1}, {"id": "mind", "label": "mind", "shape": "dot", "size": 10, "value": 1}, {"id": "early", "label": "early", "shape": "dot", "size": 10, "value": 0}, {"id": "wrong", "label": "wrong", "shape": "dot", "size": 10, "value": 0}, {"id": "state", "label": "state", "shape": "dot", "size": 10, "value": 1}, {"id": "nothing", "label": "nothing", "shape": "dot", "size": 10, "value": 1}, {"id": "full", "label": "full", "shape": "dot", "size": 10, "value": 0}, {"id": "glad", "label": "glad", "shape": "dot", "size": 10, "value": 0}, {"id": "side", "label": "side", "shape": "dot", "size": 10, "value": 1}, {"id": "true", "label": "true", "shape": "dot", "size": 10, "value": 0}, {"id": "fire", "label": "fire", "shape": "dot", "size": 10, "value": 1}, {"id": "lost", "label": "lost", "shape": "dot", "size": 10, "value": 0}, {"id": "manner", "label": "manner", "shape": "dot", "size": 10, "value": 1}, {"id": "possible", "label": "possible", "shape": "dot", "size": 10, "value": 0}, {"id": "late", "label": "late", "shape": "dot", "size": 10, "value": 0}, {"id": "perfect", "label": "perfect", "shape": "dot", "size": 10, "value": 0}, {"id": "fancy", "label": "fancy", "shape": "dot", "size": 10, "value": 0}, {"id": "family", "label": "family", "shape": "dot", "size": 10, "value": 1}, {"id": "world", "label": "world", "shape": "dot", "size": 10, "value": 1}, {"id": "half", "label": "half", "shape": "dot", "size": 10, "value": 1}]);
+        edges = new vis.DataSet([{"from": "agreeable", "to": "man", "weight": 1}, {"from": "agreeable", "to": "old", "weight": 1}, {"from": "agreeable", "to": "person", "weight": 1}, {"from": "man", "to": "old", "weight": 1}, {"from": "man", "to": "first", "weight": 1}, {"from": "man", "to": "black", "weight": 1}, {"from": "man", "to": "little", "weight": 1}, {"from": "man", "to": "young", "weight": 1}, {"from": "man", "to": "best", "weight": 1}, {"from": "man", "to": "better", "weight": 1}, {"from": "man", "to": "certain", "weight": 1}, {"from": "man", "to": "happy", "weight": 1}, {"from": "man", "to": "common", "weight": 1}, {"from": "man", "to": "good", "weight": 1}, {"from": "man", "to": "alone", "weight": 1}, {"from": "man", "to": "poor", "weight": 1}, {"from": "old", "to": "person", "weight": 1}, {"from": "old", "to": "first", "weight": 1}, {"from": "old", "to": "air", "weight": 1}, {"from": "old", "to": "black", "weight": 1}, {"from": "old", "to": "little", "weight": 1}, {"from": "old", "to": "friend", "weight": 1}, {"from": "old", "to": "love", "weight": 1}, {"from": "old", "to": "part", "weight": 1}, {"from": "old", "to": "room", "weight": 1}, {"from": "old", "to": "thing", "weight": 1}, {"from": "old", "to": "time", "weight": 1}, {"from": "old", "to": "way", "weight": 1}, {"from": "old", "to": "place", "weight": 1}, {"from": "old", "to": "woman", "weight": 1}, {"from": "old", "to": "door", "weight": 1}, {"from": "old", "to": "certain", "weight": 1}, {"from": "old", "to": "day", "weight": 1}, {"from": "old", "to": "happy", "weight": 1}, {"from": "old", "to": "dear", "weight": 1}, {"from": "old", "to": "good", "weight": 1}, {"from": "old", "to": "pretty", "weight": 1}, {"from": "old", "to": "head", "weight": 1}, {"from": "old", "to": "life", "weight": 1}, {"from": "old", "to": "house", "weight": 1}, {"from": "old", "to": "miserable", "weight": 1}, {"from": "old", "to": "name", "weight": 1}, {"from": "old", "to": "pleasant", "weight": 1}, {"from": "old", "to": "poor", "weight": 1}, {"from": "old", "to": "same", "weight": 1}, {"from": "old", "to": "strong", "weight": 1}, {"from": "old", "to": "year", "weight": 1}, {"from": "person", "to": "first", "weight": 1}, {"from": "person", "to": "bad", "weight": 1}, {"from": "person", "to": "young", "weight": 1}, {"from": "person", "to": "certain", "weight": 1}, {"from": "person", "to": "other", "weight": 1}, {"from": "person", "to": "good", "weight": 1}, {"from": "person", "to": "money", "weight": 1}, {"from": "anything", "to": "short", "weight": 1}, {"from": "anything", "to": "thought", "weight": 1}, {"from": "short", "to": "arm", "weight": 1}, {"from": "short", "to": "little", "weight": 1}, {"from": "short", "to": "way", "weight": 1}, {"from": "short", "to": "right", "weight": 1}, {"from": "short", "to": "evening", "weight": 1}, {"from": "short", "to": "other", "weight": 1}, {"from": "arm", "to": "round", "weight": 1}, {"from": "arm", "to": "right", "weight": 1}, {"from": "arm", "to": "good", "weight": 1}, {"from": "arm", "to": "home", "weight": 1}, {"from": "arm", "to": "open", "weight": 1}, {"from": "round", "to": "face", "weight": 1}, {"from": "round", "to": "little", "weight": 1}, {"from": "round", "to": "friend", "weight": 1}, {"from": "round", "to": "eye", "weight": 1}, {"from": "round", "to": "bright", "weight": 1}, {"from": "round", "to": "good", "weight": 1}, {"from": "round", "to": "hand", "weight": 1}, {"from": "round", "to": "large", "weight": 1}, {"from": "round", "to": "small", "weight": 1}, {"from": "round", "to": "something", "weight": 1}, {"from": "aunt", "to": "first", "weight": 1}, {"from": "first", "to": "boy", "weight": 1}, {"from": "first", "to": "little", "weight": 1}, {"from": "first", "to": "room", "weight": 1}, {"from": "first", "to": "thing", "weight": 1}, {"from": "first", "to": "time", "weight": 1}, {"from": "first", "to": "evening", "weight": 1}, {"from": "first", "to": "morning", "weight": 1}, {"from": "first", "to": "day", "weight": 1}, {"from": "first", "to": "great", "weight": 1}, {"from": "first", "to": "master", "weight": 1}, {"from": "first", "to": "moment", "weight": 1}, {"from": "first", "to": "work", "weight": 1}, {"from": "first", "to": "thought", "weight": 1}, {"from": "bad", "to": "air", "weight": 1}, {"from": "bad", "to": "boy", "weight": 1}, {"from": "bad", "to": "dear", "weight": 1}, {"from": "air", "to": "morning", "weight": 1}, {"from": "air", "to": "general", "weight": 1}, {"from": "air", "to": "greater", "weight": 1}, {"from": "air", "to": "pleasant", "weight": 1}, {"from": "air", "to": "same", "weight": 1}, {"from": "boy", "to": "little", "weight": 1}, {"from": "boy", "to": "young", "weight": 1}, {"from": "boy", "to": "other", "weight": 1}, {"from": "boy", "to": "dear", "weight": 1}, {"from": "boy", "to": "small", "weight": 1}, {"from": "boy", "to": "strange", "weight": 1}, {"from": "boy", "to": "poor", "weight": 1}, {"from": "boy", "to": "same", "weight": 1}, {"from": "beautiful", "to": "black", "weight": 1}, {"from": "beautiful", "to": "face", "weight": 1}, {"from": "beautiful", "to": "letter", "weight": 1}, {"from": "beautiful", "to": "little", "weight": 1}, {"from": "beautiful", "to": "young", "weight": 1}, {"from": "beautiful", "to": "poor", "weight": 1}, {"from": "black", "to": "letter", "weight": 1}, {"from": "black", "to": "little", "weight": 1}, {"from": "black", "to": "thing", "weight": 1}, {"from": "black", "to": "door", "weight": 1}, {"from": "black", "to": "eye", "weight": 1}, {"from": "black", "to": "great", "weight": 1}, {"from": "black", "to": "long", "weight": 1}, {"from": "black", "to": "hard", "weight": 1}, {"from": "black", "to": "strong", "weight": 1}, {"from": "face", "to": "little", "weight": 1}, {"from": "face", "to": "right", "weight": 1}, {"from": "face", "to": "bright", "weight": 1}, {"from": "face", "to": "other", "weight": 1}, {"from": "face", "to": "kind", "weight": 1}, {"from": "face", "to": "large", "weight": 1}, {"from": "face", "to": "new", "weight": 1}, {"from": "face", "to": "whole", "weight": 1}, {"from": "face", "to": "strange", "weight": 1}, {"from": "face", "to": "same", "weight": 1}, {"from": "letter", "to": "long", "weight": 1}, {"from": "little", "to": "friend", "weight": 1}, {"from": "little", "to": "love", "weight": 1}, {"from": "little", "to": "room", "weight": 1}, {"from": "little", "to": "thing", "weight": 1}, {"from": "little", "to": "time", "weight": 1}, {"from": "little", "to": "way", "weight": 1}, {"from": "little", "to": "better", "weight": 1}, {"from": "little", "to": "place", "weight": 1}, {"from": "little", "to": "right", "weight": 1}, {"from": "little", "to": "woman", "weight": 1}, {"from": "little", "to": "word", "weight": 1}, {"from": "little", "to": "door", "weight": 1}, {"from": "little", "to": "eye", "weight": 1}, {"from": "little", "to": "bright", "weight": 1}, {"from": "little", "to": "other", "weight": 1}, {"from": "little", "to": "child", "weight": 1}, {"from": "little", "to": "dear", "weight": 1}, {"from": "little", "to": "good", "weight": 1}, {"from": "little", "to": "home", "weight": 1}, {"from": "little", "to": "pretty", "weight": 1}, {"from": "little", "to": "voice", "weight": 1}, {"from": "little", "to": "head", "weight": 1}, {"from": "little", "to": "hope", "weight": 1}, {"from": "little", "to": "hand", "weight": 1}, {"from": "little", "to": "red", "weight": 1}, {"from": "little", "to": "white", "weight": 1}, {"from": "little", "to": "light", "weight": 1}, {"from": "little", "to": "bed", "weight": 1}, {"from": "little", "to": "house", "weight": 1}, {"from": "little", "to": "low", "weight": 1}, {"from": "little", "to": "money", "weight": 1}, {"from": "little", "to": "ready", "weight": 1}, {"from": "little", "to": "small", "weight": 1}, {"from": "little", "to": "strange", "weight": 1}, {"from": "little", "to": "thought", "weight": 1}, {"from": "little", "to": "miserable", "weight": 1}, {"from": "little", "to": "pleasant", "weight": 1}, {"from": "little", "to": "poor", "weight": 1}, {"from": "little", "to": "quiet", "weight": 1}, {"from": "little", "to": "same", "weight": 1}, {"from": "young", "to": "friend", "weight": 1}, {"from": "young", "to": "heart", "weight": 1}, {"from": "young", "to": "woman", "weight": 1}, {"from": "young", "to": "other", "weight": 1}, {"from": "young", "to": "child", "weight": 1}, {"from": "young", "to": "dear", "weight": 1}, {"from": "young", "to": "good", "weight": 1}, {"from": "young", "to": "mother", "weight": 1}, {"from": "young", "to": "pretty", "weight": 1}, {"from": "young", "to": "master", "weight": 1}, {"from": "best", "to": "course", "weight": 1}, {"from": "best", "to": "friend", "weight": 1}, {"from": "best", "to": "love", "weight": 1}, {"from": "best", "to": "part", "weight": 1}, {"from": "best", "to": "room", "weight": 1}, {"from": "best", "to": "thing", "weight": 1}, {"from": "best", "to": "time", "weight": 1}, {"from": "best", "to": "way", "weight": 1}, {"from": "course", "to": "other", "weight": 1}, {"from": "course", "to": "whole", "weight": 1}, {"from": "course", "to": "natural", "weight": 1}, {"from": "course", "to": "usual", "weight": 1}, {"from": "friend", "to": "better", "weight": 1}, {"from": "friend", "to": "other", "weight": 1}, {"from": "friend", "to": "kind", "weight": 1}, {"from": "friend", "to": "dear", "weight": 1}, {"from": "friend", "to": "good", "weight": 1}, {"from": "love", "to": "happy", "weight": 1}, {"from": "love", "to": "natural", "weight": 1}, {"from": "part", "to": "other", "weight": 1}, {"from": "part", "to": "dark", "weight": 1}, {"from": "part", "to": "good", "weight": 1}, {"from": "part", "to": "great", "weight": 1}, {"from": "part", "to": "greater", "weight": 1}, {"from": "part", "to": "strong", "weight": 1}, {"from": "room", "to": "door", "weight": 1}, {"from": "room", "to": "other", "weight": 1}, {"from": "room", "to": "dark", "weight": 1}, {"from": "room", "to": "night", "weight": 1}, {"from": "room", "to": "long", "weight": 1}, {"from": "room", "to": "large", "weight": 1}, {"from": "room", "to": "new", "weight": 1}, {"from": "room", "to": "small", "weight": 1}, {"from": "room", "to": "quiet", "weight": 1}, {"from": "room", "to": "same", "weight": 1}, {"from": "room", "to": "usual", "weight": 1}, {"from": "thing", "to": "mind", "weight": 1}, {"from": "thing", "to": "certain", "weight": 1}, {"from": "thing", "to": "common", "weight": 1}, {"from": "thing", "to": "kind", "weight": 1}, {"from": "thing", "to": "good", "weight": 1}, {"from": "thing", "to": "great", "weight": 1}, {"from": "thing", "to": "white", "weight": 1}, {"from": "thing", "to": "strange", "weight": 1}, {"from": "thing", "to": "same", "weight": 1}, {"from": "time", "to": "other", "weight": 1}, {"from": "time", "to": "good", "weight": 1}, {"from": "time", "to": "early", "weight": 1}, {"from": "time", "to": "long", "weight": 1}, {"from": "time", "to": "whole", "weight": 1}, {"from": "time", "to": "light", "weight": 1}, {"from": "time", "to": "same", "weight": 1}, {"from": "way", "to": "other", "weight": 1}, {"from": "way", "to": "home", "weight": 1}, {"from": "way", "to": "pretty", "weight": 1}, {"from": "way", "to": "general", "weight": 1}, {"from": "way", "to": "long", "weight": 1}, {"from": "way", "to": "new", "weight": 1}, {"from": "way", "to": "whole", "weight": 1}, {"from": "way", "to": "light", "weight": 1}, {"from": "way", "to": "small", "weight": 1}, {"from": "way", "to": "wrong", "weight": 1}, {"from": "way", "to": "quiet", "weight": 1}, {"from": "better", "to": "heart", "weight": 1}, {"from": "better", "to": "mind", "weight": 1}, {"from": "better", "to": "place", "weight": 1}, {"from": "better", "to": "right", "weight": 1}, {"from": "better", "to": "state", "weight": 1}, {"from": "better", "to": "woman", "weight": 1}, {"from": "better", "to": "word", "weight": 1}, {"from": "better", "to": "child", "weight": 1}, {"from": "better", "to": "thought", "weight": 1}, {"from": "better", "to": "nothing", "weight": 1}, {"from": "heart", "to": "full", "weight": 1}, {"from": "heart", "to": "glad", "weight": 1}, {"from": "heart", "to": "whole", "weight": 1}, {"from": "mind", "to": "good", "weight": 1}, {"from": "mind", "to": "whole", "weight": 1}, {"from": "mind", "to": "low", "weight": 1}, {"from": "mind", "to": "nothing", "weight": 1}, {"from": "place", "to": "right", "weight": 1}, {"from": "place", "to": "certain", "weight": 1}, {"from": "place", "to": "other", "weight": 1}, {"from": "place", "to": "good", "weight": 1}, {"from": "place", "to": "whole", "weight": 1}, {"from": "place", "to": "ready", "weight": 1}, {"from": "place", "to": "quiet", "weight": 1}, {"from": "place", "to": "same", "weight": 1}, {"from": "place", "to": "usual", "weight": 1}, {"from": "right", "to": "good", "weight": 1}, {"from": "right", "to": "home", "weight": 1}, {"from": "right", "to": "hand", "weight": 1}, {"from": "right", "to": "side", "weight": 1}, {"from": "state", "to": "new", "weight": 1}, {"from": "state", "to": "low", "weight": 1}, {"from": "state", "to": "same", "weight": 1}, {"from": "state", "to": "true", "weight": 1}, {"from": "woman", "to": "good", "weight": 1}, {"from": "woman", "to": "pretty", "weight": 1}, {"from": "woman", "to": "true", "weight": 1}, {"from": "word", "to": "kind", "weight": 1}, {"from": "word", "to": "good", "weight": 1}, {"from": "word", "to": "hard", "weight": 1}, {"from": "word", "to": "same", "weight": 1}, {"from": "door", "to": "other", "weight": 1}, {"from": "door", "to": "open", "weight": 1}, {"from": "door", "to": "small", "weight": 1}, {"from": "eye", "to": "bright", "weight": 1}, {"from": "eye", "to": "dark", "weight": 1}, {"from": "eye", "to": "fire", "weight": 1}, {"from": "eye", "to": "full", "weight": 1}, {"from": "eye", "to": "great", "weight": 1}, {"from": "eye", "to": "red", "weight": 1}, {"from": "eye", "to": "quiet", "weight": 1}, {"from": "bright", "to": "evening", "weight": 1}, {"from": "bright", "to": "morning", "weight": 1}, {"from": "bright", "to": "certain", "weight": 1}, {"from": "bright", "to": "good", "weight": 1}, {"from": "bright", "to": "same", "weight": 1}, {"from": "evening", "to": "other", "weight": 1}, {"from": "evening", "to": "quiet", "weight": 1}, {"from": "morning", "to": "early", "weight": 1}, {"from": "certain", "to": "day", "weight": 1}, {"from": "certain", "to": "other", "weight": 1}, {"from": "day", "to": "good", "weight": 1}, {"from": "day", "to": "early", "weight": 1}, {"from": "day", "to": "whole", "weight": 1}, {"from": "day", "to": "lost", "weight": 1}, {"from": "other", "to": "child", "weight": 1}, {"from": "other", "to": "kind", "weight": 1}, {"from": "other", "to": "great", "weight": 1}, {"from": "other", "to": "general", "weight": 1}, {"from": "other", "to": "head", "weight": 1}, {"from": "other", "to": "hand", "weight": 1}, {"from": "other", "to": "light", "weight": 1}, {"from": "other", "to": "manner", "weight": 1}, {"from": "other", "to": "house", "weight": 1}, {"from": "other", "to": "pleasant", "weight": 1}, {"from": "other", "to": "possible", "weight": 1}, {"from": "other", "to": "side", "weight": 1}, {"from": "child", "to": "happy", "weight": 1}, {"from": "child", "to": "dear", "weight": 1}, {"from": "child", "to": "poor", "weight": 1}, {"from": "happy", "to": "home", "weight": 1}, {"from": "happy", "to": "life", "weight": 1}, {"from": "common", "to": "same", "weight": 1}, {"from": "dark", "to": "kind", "weight": 1}, {"from": "dark", "to": "night", "weight": 1}, {"from": "kind", "to": "dear", "weight": 1}, {"from": "kind", "to": "new", "weight": 1}, {"from": "kind", "to": "strange", "weight": 1}, {"from": "kind", "to": "same", "weight": 1}, {"from": "night", "to": "good", "weight": 1}, {"from": "night", "to": "great", "weight": 1}, {"from": "night", "to": "long", "weight": 1}, {"from": "dear", "to": "good", "weight": 1}, {"from": "dear", "to": "home", "weight": 1}, {"from": "dear", "to": "mother", "weight": 1}, {"from": "dear", "to": "pretty", "weight": 1}, {"from": "dear", "to": "late", "weight": 1}, {"from": "dear", "to": "poor", "weight": 1}, {"from": "dear", "to": "same", "weight": 1}, {"from": "good", "to": "pretty", "weight": 1}, {"from": "good", "to": "fire", "weight": 1}, {"from": "good", "to": "great", "weight": 1}, {"from": "good", "to": "head", "weight": 1}, {"from": "good", "to": "hope", "weight": 1}, {"from": "good", "to": "long", "weight": 1}, {"from": "good", "to": "perfect", "weight": 1}, {"from": "good", "to": "something", "weight": 1}, {"from": "home", "to": "early", "weight": 1}, {"from": "mother", "to": "pretty", "weight": 1}, {"from": "mother", "to": "life", "weight": 1}, {"from": "mother", "to": "thought", "weight": 1}, {"from": "mother", "to": "poor", "weight": 1}, {"from": "pretty", "to": "long", "weight": 1}, {"from": "pretty", "to": "hand", "weight": 1}, {"from": "pretty", "to": "red", "weight": 1}, {"from": "pretty", "to": "large", "weight": 1}, {"from": "pretty", "to": "late", "weight": 1}, {"from": "open", "to": "hand", "weight": 1}, {"from": "fire", "to": "large", "weight": 1}, {"from": "great", "to": "voice", "weight": 1}, {"from": "great", "to": "hand", "weight": 1}, {"from": "great", "to": "hard", "weight": 1}, {"from": "great", "to": "red", "weight": 1}, {"from": "great", "to": "same", "weight": 1}, {"from": "master", "to": "hard", "weight": 1}, {"from": "master", "to": "new", "weight": 1}, {"from": "master", "to": "perfect", "weight": 1}, {"from": "moment", "to": "same", "weight": 1}, {"from": "work", "to": "hard", "weight": 1}, {"from": "general", "to": "fancy", "weight": 1}, {"from": "general", "to": "voice", "weight": 1}, {"from": "voice", "to": "low", "weight": 1}, {"from": "voice", "to": "small", "weight": 1}, {"from": "voice", "to": "quiet", "weight": 1}, {"from": "head", "to": "red", "weight": 1}, {"from": "head", "to": "large", "weight": 1}, {"from": "head", "to": "poor", "weight": 1}, {"from": "hope", "to": "new", "weight": 1}, {"from": "hope", "to": "small", "weight": 1}, {"from": "long", "to": "hand", "weight": 1}, {"from": "long", "to": "life", "weight": 1}, {"from": "long", "to": "large", "weight": 1}, {"from": "long", "to": "low", "weight": 1}, {"from": "hand", "to": "large", "weight": 1}, {"from": "hand", "to": "small", "weight": 1}, {"from": "hand", "to": "poor", "weight": 1}, {"from": "hand", "to": "strong", "weight": 1}, {"from": "hard", "to": "life", "weight": 1}, {"from": "red", "to": "light", "weight": 1}, {"from": "red", "to": "strong", "weight": 1}, {"from": "life", "to": "new", "weight": 1}, {"from": "life", "to": "quiet", "weight": 1}, {"from": "large", "to": "new", "weight": 1}, {"from": "large", "to": "white", "weight": 1}, {"from": "new", "to": "light", "weight": 1}, {"from": "new", "to": "nothing", "weight": 1}, {"from": "new", "to": "something", "weight": 1}, {"from": "late", "to": "whole", "weight": 1}, {"from": "whole", "to": "manner", "weight": 1}, {"from": "whole", "to": "house", "weight": 1}, {"from": "whole", "to": "family", "weight": 1}, {"from": "whole", "to": "world", "weight": 1}, {"from": "light", "to": "manner", "weight": 1}, {"from": "light", "to": "something", "weight": 1}, {"from": "manner", "to": "natural", "weight": 1}, {"from": "manner", "to": "pleasant", "weight": 1}, {"from": "manner", "to": "same", "weight": 1}, {"from": "house", "to": "small", "weight": 1}, {"from": "low", "to": "same", "weight": 1}, {"from": "strange", "to": "something", "weight": 1}, {"from": "thought", "to": "nothing", "weight": 1}, {"from": "thought", "to": "possible", "weight": 1}, {"from": "nothing", "to": "half", "weight": 1}, {"from": "nothing", "to": "wrong", "weight": 1}, {"from": "wrong", "to": "something", "weight": 1}, {"from": "side", "to": "world", "weight": 1}, {"from": "quiet", "to": "same", "weight": 1}, {"from": "same", "to": "strong", "weight": 1}, {"from": "strong", "to": "usual", "weight": 1}]);
+
+        // adding nodes and edges to the graph
+        data = {nodes: nodes, edges: edges};
+
+        var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": false,
+            "type": "continuous"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+        
+        
+
+        
+
+        network = new vis.Network(container, data, options);
+
+        
+
+
+        
+        network.on("stabilizationProgress", function(params) {
+      		document.getElementById('loadingBar').removeAttribute("style");
+	        var maxWidth = 496;
+	        var minWidth = 20;
+	        var widthFactor = params.iterations/params.total;
+	        var width = Math.max(minWidth,maxWidth * widthFactor);
+
+	        document.getElementById('bar').style.width = width + 'px';
+	        document.getElementById('text').innerHTML = Math.round(widthFactor*100) + '%';
+	    });
+	    network.once("stabilizationIterationsDone", function() {
+	        document.getElementById('text').innerHTML = '100%';
+	        document.getElementById('bar').style.width = '496px';
+	        document.getElementById('loadingBar').style.opacity = 0;
+	        // really clean the dom element
+	        setTimeout(function () {document.getElementById('loadingBar').style.display = 'none';}, 500);
+	    });
+        
+
+        return network;
+
+    }
+
+    drawGraph();
+
+</script>
+</body>
+</html>
