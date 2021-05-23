@@ -1,0 +1,123 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis.css" type="text/css" />
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis-network.min.js"> </script>
+<center>
+<h1>Politifact - Untruthful Statements</h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+
+<style type="text/css">
+
+        #mynetwork {
+            width: 100%;
+            height: 700px;
+            background-color: #ffffff;
+            border: 1px solid lightgray;
+            position: relative;
+            float: left;
+        }
+
+        
+
+        
+        #config {
+            float: left;
+            width: 400px;
+            height: 600px;
+        }
+        
+
+        
+</style>
+
+</head>
+
+<body>
+<div id = "mynetwork"></div>
+
+
+<div id = "config"></div>
+
+<script type="text/javascript">
+
+    // initialize global variables.
+    var edges;
+    var nodes;
+    var network; 
+    var container;
+    var options, data;
+
+    
+    // This method is responsible for drawing the graph, returns the drawn network
+    function drawGraph() {
+        var container = document.getElementById('mynetwork');
+        
+        
+
+        // parsing and collecting nodes and edges from the python
+        nodes = new vis.DataSet([{"font": {"color": "black"}, "id": "Viral image", "label": "Viral image", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": 4, "label": 4, "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": 5, "label": 5, "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": 3, "label": 3, "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": 0, "label": 0, "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": 2, "label": 2, "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": 1, "label": 1, "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": 6, "label": 6, "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Tweets", "label": "Tweets", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Bloggers", "label": "Bloggers", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "YouTube videos", "label": "YouTube videos", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Facebook posts", "label": "Facebook posts", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Instagram posts", "label": "Instagram posts", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Joe Biden", "label": "Joe Biden", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Tony Evers", "label": "Tony Evers", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Donald Trump", "label": "Donald Trump", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Rick Scott", "label": "Rick Scott", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Bernie Sanders", "label": "Bernie Sanders", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Chain email", "label": "Chain email", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Ted Cruz", "label": "Ted Cruz", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Mitt Romney", "label": "Mitt Romney", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Sarah Palin", "label": "Sarah Palin", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Marco Rubio", "label": "Marco Rubio", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Barack Obama", "label": "Barack Obama", "shape": "dot", "size": 10}]);
+        edges = new vis.DataSet([{"from": "Viral image", "to": 4, "value": 1317, "weight": 1}, {"from": "Viral image", "to": 5, "value": 126, "weight": 1}, {"from": "Viral image", "to": 3, "value": 110, "weight": 1}, {"from": "Viral image", "to": 0, "value": 309, "weight": 1}, {"from": "Viral image", "to": 2, "value": 135, "weight": 1}, {"from": "Viral image", "to": 1, "value": 243, "weight": 1}, {"from": "Viral image", "to": 6, "value": 41, "weight": 1}, {"from": 4, "to": "Tweets", "value": 107, "weight": 1}, {"from": 4, "to": "Bloggers", "value": 852, "weight": 1}, {"from": 4, "to": "YouTube videos", "value": 55, "weight": 1}, {"from": 4, "to": "Facebook posts", "value": 2335, "weight": 1}, {"from": 4, "to": "Instagram posts", "value": 122, "weight": 1}, {"from": 4, "to": "Joe Biden", "value": 172, "weight": 1}, {"from": 4, "to": "Tony Evers", "value": 83, "weight": 1}, {"from": 4, "to": "Donald Trump", "value": 530, "weight": 1}, {"from": 4, "to": "Rick Scott", "value": 41, "weight": 1}, {"from": 4, "to": "Bernie Sanders", "value": 50, "weight": 1}, {"from": 4, "to": "Chain email", "value": 43, "weight": 1}, {"from": 5, "to": "Facebook posts", "value": 239, "weight": 1}, {"from": 5, "to": "Donald Trump", "value": 231, "weight": 1}, {"from": 5, "to": "Bloggers", "value": 83, "weight": 1}, {"from": 5, "to": "Rick Scott", "value": 46, "weight": 1}, {"from": 5, "to": "Ted Cruz", "value": 66, "weight": 1}, {"from": 5, "to": "Chain email", "value": 77, "weight": 1}, {"from": 5, "to": "Mitt Romney", "value": 47, "weight": 1}, {"from": 3, "to": "Facebook posts", "value": 178, "weight": 1}, {"from": 3, "to": "Bloggers", "value": 94, "weight": 1}, {"from": 3, "to": "Donald Trump", "value": 103, "weight": 1}, {"from": 0, "to": "Facebook posts", "value": 714, "weight": 1}, {"from": 0, "to": "Bloggers", "value": 371, "weight": 1}, {"from": 0, "to": "Ted Cruz", "value": 51, "weight": 1}, {"from": 0, "to": "Joe Biden", "value": 73, "weight": 1}, {"from": 0, "to": "Instagram posts", "value": 52, "weight": 1}, {"from": 0, "to": "Donald Trump", "value": 594, "weight": 1}, {"from": 0, "to": "Bernie Sanders", "value": 67, "weight": 1}, {"from": 0, "to": "Sarah Palin", "value": 46, "weight": 1}, {"from": 0, "to": "Chain email", "value": 102, "weight": 1}, {"from": 2, "to": "Facebook posts", "value": 213, "weight": 1}, {"from": 2, "to": "Bloggers", "value": 225, "weight": 1}, {"from": 2, "to": "Ted Cruz", "value": 54, "weight": 1}, {"from": 2, "to": "Donald Trump", "value": 307, "weight": 1}, {"from": 2, "to": "Marco Rubio", "value": 42, "weight": 1}, {"from": 2, "to": "Chain email", "value": 94, "weight": 1}, {"from": 1, "to": "Facebook posts", "value": 559, "weight": 1}, {"from": 1, "to": "Bloggers", "value": 169, "weight": 1}, {"from": 1, "to": "Instagram posts", "value": 50, "weight": 1}, {"from": 1, "to": "Donald Trump", "value": 298, "weight": 1}, {"from": 1, "to": "Barack Obama", "value": 47, "weight": 1}, {"from": 6, "to": "Facebook posts", "value": 129, "weight": 1}, {"from": 6, "to": "Bloggers", "value": 82, "weight": 1}, {"from": 6, "to": "Donald Trump", "value": 83, "weight": 1}, {"from": 6, "to": "Barack Obama", "value": 85, "weight": 1}, {"from": 6, "to": "Chain email", "value": 73, "weight": 1}, {"from": 6, "to": "Mitt Romney", "value": 54, "weight": 1}]);
+
+        // adding nodes and edges to the graph
+        data = {nodes: nodes, edges: edges};
+
+        var options = {
+    "configure": {
+        "enabled": true,
+        "filter": [
+            "physics"
+        ]
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": false,
+            "type": "continuous"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+        
+        
+
+        
+        // if this network requires displaying the configure window,
+        // put it in its div
+        options.configure["container"] = document.getElementById("config");
+        
+
+        network = new vis.Network(container, data, options);
+
+        
+
+
+        
+
+        return network;
+
+    }
+
+    drawGraph();
+
+</script>
+</body>
+</html>
