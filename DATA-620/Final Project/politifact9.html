@@ -1,0 +1,123 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis.css" type="text/css" />
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis-network.min.js"> </script>
+<center>
+<h1>Politifact - Most Truthful for Topics 4 & 5 (Abortion & Energy)</h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+
+<style type="text/css">
+
+        #mynetwork {
+            width: 100%;
+            height: 700px;
+            background-color: #ffffff;
+            border: 1px solid lightgray;
+            position: relative;
+            float: left;
+        }
+
+        
+
+        
+        #config {
+            float: left;
+            width: 400px;
+            height: 600px;
+        }
+        
+
+        
+</style>
+
+</head>
+
+<body>
+<div id = "mynetwork"></div>
+
+
+<div id = "config"></div>
+
+<script type="text/javascript">
+
+    // initialize global variables.
+    var edges;
+    var nodes;
+    var network; 
+    var container;
+    var options, data;
+
+    
+    // This method is responsible for drawing the graph, returns the drawn network
+    function drawGraph() {
+        var container = document.getElementById('mynetwork');
+        
+        
+
+        // parsing and collecting nodes and edges from the python
+        nodes = new vis.DataSet([{"font": {"color": "black"}, "id": 5, "label": 5, "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Bernie Sanders", "label": "Bernie Sanders", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Andrew Cuomo", "label": "Andrew Cuomo", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Tim Kaine", "label": "Tim Kaine", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Scott Walker", "label": "Scott Walker", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Richard Cordray", "label": "Richard Cordray", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Mitch McConnell", "label": "Mitch McConnell", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Jerry Brown", "label": "Jerry Brown", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Hillary Clinton", "label": "Hillary Clinton", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "John Cornyn", "label": "John Cornyn", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Kathleen Sebelius", "label": "Kathleen Sebelius", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Rob Portman", "label": "Rob Portman", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Dave Brat", "label": "Dave Brat", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Stephen Colbert", "label": "Stephen Colbert", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Charlie Crist", "label": "Charlie Crist", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Charlotte Nash", "label": "Charlotte Nash", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Rand Paul", "label": "Rand Paul", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Lincoln Chafee", "label": "Lincoln Chafee", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Nathan Deal", "label": "Nathan Deal", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Alan Grayson", "label": "Alan Grayson", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Al Sharpton", "label": "Al Sharpton", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Paul Krugman", "label": "Paul Krugman", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Johnny Isakson", "label": "Johnny Isakson", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Leonard Lance", "label": "Leonard Lance", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Bill Richardson", "label": "Bill Richardson", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Jamie Radtke", "label": "Jamie Radtke", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Jim Sensenbrenner", "label": "Jim Sensenbrenner", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "David Axelrod", "label": "David Axelrod", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Kurt Schrader", "label": "Kurt Schrader", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Randy Forbes", "label": "Randy Forbes", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Chris Van Hollen", "label": "Chris Van Hollen", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": "Judd Gregg", "label": "Judd Gregg", "shape": "dot", "size": 10}, {"font": {"color": "black"}, "id": 4, "label": 4, "shape": "dot", "size": 10}]);
+        edges = new vis.DataSet([{"from": 5, "to": "Bernie Sanders", "value": 31, "weight": 1}, {"from": 5, "to": "Andrew Cuomo", "value": 18, "weight": 1}, {"from": 5, "to": "Tim Kaine", "value": 13, "weight": 1}, {"from": 5, "to": "Scott Walker", "value": 46, "weight": 1}, {"from": 5, "to": "Richard Cordray", "value": 11, "weight": 1}, {"from": 5, "to": "Mitch McConnell", "value": 22, "weight": 1}, {"from": 5, "to": "Jerry Brown", "value": 16, "weight": 1}, {"from": 5, "to": "Hillary Clinton", "value": 75, "weight": 1}, {"from": 5, "to": "John Cornyn", "value": 22, "weight": 1}, {"from": 5, "to": "Kathleen Sebelius", "value": 18, "weight": 1}, {"from": 5, "to": "Rob Portman", "value": 14, "weight": 1}, {"from": 5, "to": "Dave Brat", "value": 13, "weight": 1}, {"from": 5, "to": "Stephen Colbert", "value": 13, "weight": 1}, {"from": 5, "to": "Charlie Crist", "value": 19, "weight": 1}, {"from": 5, "to": "Charlotte Nash", "value": 15, "weight": 1}, {"from": 5, "to": "Rand Paul", "value": 11, "weight": 1}, {"from": 5, "to": "Lincoln Chafee", "value": 25, "weight": 1}, {"from": 5, "to": "Nathan Deal", "value": 16, "weight": 1}, {"from": 5, "to": "Alan Grayson", "value": 12, "weight": 1}, {"from": 5, "to": "Al Sharpton", "value": 12, "weight": 1}, {"from": 5, "to": "Paul Krugman", "value": 22, "weight": 1}, {"from": 5, "to": "Johnny Isakson", "value": 15, "weight": 1}, {"from": 5, "to": "Leonard Lance", "value": 18, "weight": 1}, {"from": 5, "to": "Bill Richardson", "value": 17, "weight": 1}, {"from": 5, "to": "Jamie Radtke", "value": 11, "weight": 1}, {"from": 5, "to": "Jim Sensenbrenner", "value": 11, "weight": 1}, {"from": 5, "to": "David Axelrod", "value": 12, "weight": 1}, {"from": 5, "to": "Kurt Schrader", "value": 15, "weight": 1}, {"from": 5, "to": "Randy Forbes", "value": 15, "weight": 1}, {"from": 5, "to": "Chris Van Hollen", "value": 11, "weight": 1}, {"from": 5, "to": "Judd Gregg", "value": 13, "weight": 1}]);
+
+        // adding nodes and edges to the graph
+        data = {nodes: nodes, edges: edges};
+
+        var options = {
+    "configure": {
+        "enabled": true,
+        "filter": [
+            "physics"
+        ]
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": false,
+            "type": "continuous"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+        
+        
+
+        
+        // if this network requires displaying the configure window,
+        // put it in its div
+        options.configure["container"] = document.getElementById("config");
+        
+
+        network = new vis.Network(container, data, options);
+
+        
+
+
+        
+
+        return network;
+
+    }
+
+    drawGraph();
+
+</script>
+</body>
+</html>
